@@ -7,16 +7,17 @@ import {useSession} from '@/lib/session';
 import {APP_CONFIG} from '@/config/app';
 import {typography,useTheme} from '@/lib/theme';
 import {SmartImage} from '@/components/Media';
-import {AppBackground,GlassCard,Money,ScreenHeader,SectionTitle,Pill,useResponsivePage} from '@/components/UI';
+import {AppBackground,GlassCard,Money,Notice,ScreenHeader,SectionTitle,Pill,useResponsivePage} from '@/components/UI';
 
 export default function Dashboard(){
-  const[d,setD]=useState<any>({}),[loading,setLoading]=useState(false);const{user}=useSession();const{colors}=useTheme();const page=useResponsivePage(true);
-  const load=async()=>{setLoading(true);try{setD(await api('/dashboard'))}finally{setLoading(false)}};useFocusEffect(useCallback(()=>{load()},[]));
+  const[d,setD]=useState<any>({}),[loading,setLoading]=useState(false),[loadError,setLoadError]=useState('');const{user,error:sessionError,refresh}=useSession();const{colors}=useTheme();const page=useResponsivePage(true);
+  const load=async()=>{setLoading(true);const profileRefresh=!user?refresh().catch(()=>{}):Promise.resolve();try{setD(await api('/dashboard'));setLoadError('')}catch(error:any){setLoadError(error?.message||'The dashboard could not be loaded.')}finally{await profileRefresh;setLoading(false)}};useFocusEffect(useCallback(()=>{void load()},[]));
   const currency=user?.business?.currency||APP_CONFIG.businessDefaults.currency;
   const trend=useMemo(()=>{const map=new Map<string,{income:number;expense:number}>();(d.monthlyTrend||[]).forEach((x:any)=>{const k=`${x._id.y}-${String(x._id.m).padStart(2,'0')}`;const v=map.get(k)||{income:0,expense:0};if(x._id.type==='INCOME')v.income=x.total;else v.expense=x.total;map.set(k,v)});return [...map.entries()].slice(-6)},[d.monthlyTrend]);
   const maxTrend=Math.max(1,...trend.flatMap(([,v])=>[v.income,v.expense]));
   return <AppBackground><ScrollView style={{flex:1}} contentContainerStyle={[s.content,page]} refreshControl={<RefreshControl refreshing={loading} onRefresh={load} tintColor={colors.primary}/>}>
     <ScreenHeader title={`Good day, ${user?.name?.split(' ')[0]||'there'}`} subtitle={user?.business?.name||`Your ${APP_CONFIG.name} workspace`} right={<TouchableOpacity onPress={()=>router.push('/profile')} style={[s.profileButton,{backgroundColor:colors.surfaceStrong,borderColor:colors.borderStrong}]}><SmartImage kind="avatar" uri={user?.profilePictureUrl} size={44} fallbackText={user?.name||'T'} bordered={false}/><View style={[s.secureDot,{backgroundColor:colors.success,borderColor:colors.surfaceStrong}]}/></TouchableOpacity>}/>
+    {loadError||sessionError?<View style={{marginBottom:12}}><Notice tone="danger" title="Workspace server unavailable" body={`${loadError||sessionError} Pull down to retry.`}/></View>:null}
     <View style={[s.hero,{backgroundColor:colors.primary2,borderColor:colors.borderStrong}]}><View style={StyleSheet.absoluteFill}><View style={[s.orb,{backgroundColor:colors.accent}]}/></View><Text style={[s.kicker,typography.medium,{color:colors.heroTextMuted}]}>{APP_CONFIG.copy.dashboardPosition.toUpperCase()}</Text><Text style={[s.heroMoney,typography.medium,{color:colors.heroText}]}>{currency} {Number(d.cashPosition||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</Text><Text style={[s.heroSub,typography.regular,{color:colors.heroTextMuted}]}>Income less recorded expenses</Text><View style={s.heroRow}><HeroMini label="This month income" value={d.thisMonth?.income||0} currency={currency}/><HeroMini label="This month spend" value={d.thisMonth?.expenses||0} currency={currency}/></View></View>
     <View style={s.grid}><Metric label="Total income" value={d.income} currency={currency} icon="arrow-down-circle-outline" tone="income"/><Metric label="Total expenses" value={d.expenses} currency={currency} icon="arrow-up-circle-outline" tone="expense"/><Metric label="Net profit" value={d.profit} currency={currency} icon="trending-up-outline"/><Metric label="Receivables" value={d.unpaidInvoices} currency={currency} icon="time-outline"/></View>
     <SectionTitle title="Cashflow trend" subtitle="Income vs expenses • last six months"/>

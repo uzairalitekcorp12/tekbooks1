@@ -2,10 +2,9 @@ import {useEffect,useMemo,useState} from 'react';
 import {Alert,ScrollView,StyleSheet,Text,TouchableOpacity,View} from 'react-native';
 import {router} from 'expo-router';
 import {Ionicons} from '@expo/vector-icons';
-import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
-import * as SecureStore from 'expo-secure-store';
-import {api,API_URL} from '@/lib/api';
+import {api} from '@/lib/api';
+import {downloadProtectedFile} from '@/lib/files';
 import {APP_CONFIG,REPORT_SECTIONS} from '@/config/app';
 import {typography,useTheme} from '@/lib/theme';
 import {SmartImage} from '@/components/Media';
@@ -22,7 +21,7 @@ export default function Reports(){
   function toggle(key:string){setSelected(v=>v.includes(key)?v.filter(x=>x!==key):[...v,key])}
   async function download(kind:'pdf'|'xlsx'){
     if(!selected.length)return Alert.alert('Choose report sections','Select at least one section before exporting.');
-    setExporting(kind);try{const token=await SecureStore.getItemAsync('tekbooks_token');const dir=FileSystem.cacheDirectory||FileSystem.documentDirectory||'';const name=`${(user?.business?.name||'Business').replace(/[^a-z0-9]+/gi,'-')}-${APP_CONFIG.name}-Report.${kind}`;const out=`${dir}${name}`;const result=await FileSystem.downloadAsync(`${API_URL}/reports/export.${kind}${exportQuery}`,out,{headers:{Authorization:`Bearer ${token}`}});if(result.status!==200)throw new Error(`Report service returned ${result.status}`);if(await Sharing.isAvailableAsync())await Sharing.shareAsync(out,{mimeType:kind==='pdf'?'application/pdf':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',dialogTitle:`Share ${name}`});else Alert.alert('Report saved',out)}catch(e:any){Alert.alert('Export unavailable',e.message)}finally{setExporting('')}
+    setExporting(kind);try{const name=`${(user?.business?.name||'Business').replace(/[^a-z0-9]+/gi,'-')}-${APP_CONFIG.name}-Report.${kind}`;const out=await downloadProtectedFile(`/reports/export.${kind}${exportQuery}`,name);if(await Sharing.isAvailableAsync())await Sharing.shareAsync(out,{mimeType:kind==='pdf'?'application/pdf':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',dialogTitle:`Share ${name}`});else Alert.alert('Report saved',out)}catch(e:any){Alert.alert('Export unavailable',e.message)}finally{setExporting('')}
   }
   const currency=user?.business?.currency||APP_CONFIG.businessDefaults.currency;const logo=user?.business?.logoUrl;const allSelected=selected.length===REPORT_SECTIONS.length;
   return <AppBackground><ScrollView style={{flex:1}} contentContainerStyle={[s.content,page]}>

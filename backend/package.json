@@ -17,6 +17,7 @@
     "db:check": "tsx src/scripts/db-check.ts",
     "storage:check": "tsx src/scripts/storage-check.ts",
     "storage:setup": "tsx src/scripts/storage-setup.ts",
+    "storage:cleanup": "tsx src/scripts/storage-cleanup.ts",
     "production:check": "tsx src/scripts/production-check.ts"
   },
   "engines": {

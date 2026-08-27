@@ -21,7 +21,7 @@ export const app=express();
 app.set('trust proxy',1);app.use(helmet({crossOriginResourcePolicy:{policy:'cross-origin'}}));app.use(cors({origin:true,credentials:false}));app.use(compression());app.use(globalLimiter);app.use(express.json({limit:'1mb'}));app.use(express.urlencoded({extended:false,limit:'1mb'}));
 if(env.STORAGE_DRIVER==='local')app.use('/uploads',express.static(path.resolve(env.UPLOAD_DIR),{fallthrough:false,maxAge:'1h'}));
 app.use('/media',media);
-app.get('/health',(_req,res)=>res.json({ok:true,service:'tekbooks-api',version:'1.0.9-hotfix2',time:new Date().toISOString()}));
+app.get('/health',(_req,res)=>res.json({ok:true,service:'tekbooks-api',version:'1.0.9-hotfix4',time:new Date().toISOString()}));
 app.get('/ready',async(_req,res)=>{try{if(mongoose.connection.readyState!==1)throw new Error('Database is not connected');await mongoose.connection.db?.admin().ping();const storage=await ensureStorageReady(false);res.json({ok:true,database:'ready',storage:{driver:storage.driver,ready:true}})}catch(error:any){res.status(503).json({ok:false,message:error?.message||'Service not ready'})}});
 app.use('/api/auth',auth);app.use('/api/parties',parties);app.use('/api/transactions',transactions);app.use('/api/invoices',invoices);app.use('/api/dashboard',dashboard);app.use('/api/profile',profile);app.use('/api/uploads',uploads);app.use('/api/reports',reports);app.use('/api/admin',admin);
 app.use((_req,res)=>res.status(404).json({message:'Route not found'}));

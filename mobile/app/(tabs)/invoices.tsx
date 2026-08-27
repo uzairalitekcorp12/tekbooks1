@@ -1,13 +1,12 @@
 import {useCallback,useMemo,useState} from 'react';
-import {Alert,Linking,ScrollView,StyleSheet,Text,TouchableOpacity,View} from 'react-native';
+import {Alert,ScrollView,StyleSheet,Text,TouchableOpacity,View} from 'react-native';
 import {useFocusEffect} from 'expo-router';
 import {Ionicons} from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
-import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
-import * as SecureStore from 'expo-secure-store';
 import * as Print from 'expo-print';
-import {api,API_URL,uploadAsset,deleteUploadedAsset,absoluteAssetUrl} from '@/lib/api';
+import {api,uploadAsset,deleteUploadedAsset} from '@/lib/api';
+import {downloadProtectedFile,openStoredAttachment} from '@/lib/files';
 import {APP_CONFIG,PAYMENT_METHODS} from '@/config/app';
 import {useSession} from '@/lib/session';
 import {typography,useTheme} from '@/lib/theme';
@@ -73,10 +72,7 @@ export default function Invoices(){
   }
   async function downloadPdf(inv:any){
     const check=await pdfReady(inv);
-    const token=await SecureStore.getItemAsync('tekbooks_token');const dir=FileSystem.cacheDirectory||FileSystem.documentDirectory||'';const out=`${dir}${inv.invoiceNumber}.pdf`;
-    const result=await FileSystem.downloadAsync(`${API_URL}/invoices/${inv._id}/pdf`,out,{headers:{Authorization:`Bearer ${token}`}});
-    if(result.status!==200)throw new Error(`The PDF service returned HTTP ${result.status}. ${check?.warnings?.length?check.warnings.join(' '):'Open the invoice and check its company/customer information.'}`);
-    return out;
+    try{return await downloadProtectedFile(`/invoices/${inv._id}/pdf`,`${inv.invoiceNumber}.pdf`)}catch(e:any){if(check?.warnings?.length)e.message=`${e.message}\n${check.warnings.join(' ')}`;throw e}
   }
   async function sharePdf(inv:any){try{const out=await downloadPdf(inv);if(await Sharing.isAvailableAsync())await Sharing.shareAsync(out,{mimeType:'application/pdf',dialogTitle:`Share ${inv.invoiceNumber}`});else Alert.alert('Invoice saved',out)}catch(e:any){Alert.alert('Invoice PDF could not be generated',e.message||'Unknown PDF error')}}
   async function printPdf(inv:any){try{const out=await downloadPdf(inv);await Print.printAsync({uri:out})}catch(e:any){Alert.alert('Invoice could not be printed',e.message||'Unknown PDF error')}}
@@ -138,7 +134,7 @@ export default function Invoices(){
     {selected?<>
       <View style={[s.invoiceHero,{backgroundColor:selected.status==='PAID'?colors.successSoft:selected.status==='PARTIAL'?colors.warningSoft:colors.dangerSoft,borderColor:colors.border}]}><View style={{flex:1,minWidth:0}}><Text style={[s.detailKicker,typography.medium,{color:colors.textMuted}]}>INVOICE TOTAL</Text><Money value={selected.total} currency={currency} size="lg"/></View><Pill text={selected.status} tone={selected.status==='PAID'?'green':selected.status==='PARTIAL'?'amber':'red'}/></View>
       <InfoRow label="Customer" value={selected.customerSnapshot?.name||'—'}/><InfoRow label="Issue date" value={new Date(selected.issueDate).toLocaleDateString()}/><InfoRow label="Due date" value={new Date(selected.dueDate).toLocaleDateString()}/><InfoRow label="Subtotal" value={<Money value={selected.subtotal} currency={currency} size="sm"/>}/><InfoRow label={`Discount (${Number(selected.discountPercent??(selected.subtotal?Number(selected.discount||0)/Number(selected.subtotal)*100:0)).toFixed(2).replace(/\.00$/,'')}%)`} value={<Money value={selected.discount} currency={currency} size="sm"/>}/><InfoRow label="VAT" value={<Money value={selected.vatAmount} currency={currency} size="sm"/>}/><InfoRow label="Paid" value={<Money value={selected.paidAmount} currency={currency} size="sm" tone="income"/>}/><InfoRow label="Balance" value={<Money value={selected.balance} currency={currency} size="sm" tone={selected.balance>0?'expense':'default'}/>} strong/>
-      {selected.attachment?<View style={{marginTop:12}}><Button secondary icon="document-attach-outline" title={`Open ${selected.attachment.name||'invoice attachment'}`} onPress={()=>Linking.openURL(absoluteAssetUrl(selected.attachment.url))}/></View>:null}
+      {selected.attachment?<View style={{marginTop:12}}><Button secondary icon="document-attach-outline" title={`Open ${selected.attachment.name||'invoice attachment'}`} onPress={async()=>{try{await openStoredAttachment(selected.attachment)}catch(e:any){Alert.alert('Attachment unavailable',e.message)}}}/></View>:null}
       <Text style={[s.detailSection,typography.medium,{color:colors.text}]}>Line items</Text>{(selected.lines||[]).map((l:any,i:number)=><View key={`${l.description}-${i}`} style={[s.detailLine,{borderBottomColor:colors.border}]}><View style={{flex:1,minWidth:0}}><Text style={[typography.medium,{fontSize:12,color:colors.text}]}>{l.description}</Text><Text style={[typography.regular,{fontSize:10,color:colors.textMuted,marginTop:3,lineHeight:15}]}>{l.qty} × {currency} {Number(l.unitPrice).toFixed(2)} • VAT {l.vatPercent}%</Text></View><Money value={l.amount} currency={currency} size="sm" style={{maxWidth:125}}/></View>)}
       {selected.payments?.length?<><Text style={[s.detailSection,typography.medium,{color:colors.text}]}>Payment history</Text>{selected.payments.map((p:any,i:number)=><View key={p._id||i} style={[s.detailLine,{borderBottomColor:colors.border}]}><View style={{flex:1,minWidth:0}}><Text style={[typography.medium,{fontSize:12,color:colors.text}]}>{p.method}</Text><Text style={[typography.regular,{fontSize:10,color:colors.textMuted,marginTop:3,lineHeight:15}]}>{new Date(p.date).toLocaleDateString()}{p.notes?` • ${p.notes}`:''}</Text></View><Money value={p.amount} currency={currency} size="sm" tone="income" style={{maxWidth:125}}/></View>)}</>:null}
       {selected.notes?<><Text style={[s.detailSection,typography.medium,{color:colors.text}]}>Notes / terms</Text><Notice title="Invoice note" body={selected.notes}/></>:null}

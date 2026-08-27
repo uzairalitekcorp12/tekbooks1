@@ -48,8 +48,12 @@ export const APP_CONFIG = {
   },
 
   security: {
-    /** Expo Go is development-only and does not represent the final signed-device identity. */
-    persistExpoGoSession: false,
+    /**
+     * Expo Go is development-only, but its installation identity is stable enough
+     * to retain a local development session across Metro reloads. Production API
+     * policy still rejects Expo Go sign-in, so this does not weaken release builds.
+     */
+    persistExpoGoSession: true,
   },
 
   layout: {

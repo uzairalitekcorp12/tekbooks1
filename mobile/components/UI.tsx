@@ -73,7 +73,7 @@ export function Button({title,onPress,loading,secondary,icon,disabled,danger,com
   const{colors}=useTheme();const h=compact?44:54;const fg=danger?colors.danger:colors.primary;
   return <TouchableOpacity disabled={disabled||loading} onPress={onPress} activeOpacity={.84} style={{opacity:disabled?0.5:1}}>
     {secondary||danger?<View style={[s.secondary,{height:h,borderColor:danger?colors.danger:colors.borderStrong,backgroundColor:danger?colors.dangerSoft:colors.surfaceStrong}]}>
-      {icon?<Ionicons name={icon} size={18} color={fg}/>:null}<Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={.82} style={[s.secondaryText,typography.medium,{color:fg}]}>{title}</Text>
+      {loading?<ActivityIndicator color={fg}/>:<>{icon?<Ionicons name={icon} size={18} color={fg}/>:null}<Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={.82} style={[s.secondaryText,typography.medium,{color:fg}]}>{title}</Text></>}
     </View>:<LinearGradient colors={[colors.primary,colors.primary2] as any} start={{x:0,y:0}} end={{x:1,y:1}} style={[s.button,{height:h}]}>
       {loading?<ActivityIndicator color={colors.onPrimary}/>:<>{icon?<Ionicons name={icon} size={18} color={colors.onPrimary}/>:null}<Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={.82} style={[s.buttonText,typography.medium,{color:colors.onPrimary}]}>{title}</Text></>}
     </LinearGradient>}

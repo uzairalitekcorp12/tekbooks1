@@ -4,10 +4,12 @@ import Constants from 'expo-constants';
 import {isRunningInExpoGo} from 'expo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {APP_CONFIG} from '@/config/app';
+import {useSession} from '@/lib/session';
 
 export type ThemeMode = 'light' | 'dark' | 'system';
 export type AppColors = {[K in keyof typeof APP_CONFIG.theme.light]: string};
-const KEY = 'tekbooks_theme_mode';
+const LEGACY_KEY = 'tekbooks_theme_mode';
+const accountKey=(user:any)=>`${LEGACY_KEY}:${String(user?.id||user?._id||'account')}`;
 
 const ThemeContext = createContext<{
   mode: ThemeMode;
@@ -19,13 +21,18 @@ const ThemeContext = createContext<{
 
 export function ThemeProvider({children}:{children:React.ReactNode}){
   const system=useColorScheme();
+  const{token,user,loading}=useSession();
   const[mode,setModeState]=useState<ThemeMode>('light');
-  useEffect(()=>{AsyncStorage.getItem(KEY).then(v=>{if(v==='light'||v==='dark'||v==='system')setModeState(v)}).catch(()=>{})},[]);
-  const resolved:'light'|'dark'=mode==='system'?(system==='dark'?'dark':'light'):mode;
+  useEffect(()=>{let active=true;(async()=>{
+    if(loading||!token){if(active)setModeState('light');return}
+    try{const saved=await AsyncStorage.getItem(accountKey(user))||await AsyncStorage.getItem(LEGACY_KEY);if(active)setModeState(saved==='dark'||saved==='system'||saved==='light'?saved:'light')}catch{if(active)setModeState('light')}
+  })();return()=>{active=false}},[loading,token,user?.id,user?._id]);
+  const effectiveMode:ThemeMode=!token?'light':mode;
+  const resolved:'light'|'dark'=effectiveMode==='system'?(system==='dark'?'dark':'light'):effectiveMode;
   const colors=APP_CONFIG.theme[resolved] as AppColors;
-  const setMode=async(next:ThemeMode)=>{setModeState(next);await AsyncStorage.setItem(KEY,next)};
+  const setMode=async(next:ThemeMode)=>{if(!token){setModeState('light');return}setModeState(next);await AsyncStorage.setItem(accountKey(user),next);await AsyncStorage.setItem(LEGACY_KEY,next)};
   const toggle=async()=>setMode(resolved==='dark'?'light':'dark');
-  const value=useMemo(()=>({mode,resolved,colors,setMode,toggle}),[mode,resolved,colors]);
+  const value=useMemo(()=>({mode:effectiveMode,resolved,colors,setMode,toggle}),[effectiveMode,resolved,colors,token,user]);
   return React.createElement(ThemeContext.Provider,{value},children);
 }
 export const useTheme=()=>useContext(ThemeContext);

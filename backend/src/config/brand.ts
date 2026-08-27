@@ -11,5 +11,6 @@ export const REPORT_BRAND={
   warning:'#B97810',
   success:'#0F9F7F',
   product:'TekBooks',
-  poweredBy:'Powered by TekBooks'
+  poweredBy:'Powered by TekBooks',
+  builtBy:'Built By Tekcorp'
 } as const;

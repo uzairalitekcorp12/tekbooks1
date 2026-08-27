@@ -7,6 +7,7 @@ import { comparePassword, consumeOtp, createOtp, hashPassword, signToken } from 
 import { env } from '../config/env.js';
 import { sendExpoPush } from '../services/push.js';
 import { requireAuth } from '../middleware/auth.js';
+import { refreshedOwnedStorageUrl } from '../services/storage.js';
 
 const r = Router();
 r.use(authLimiter);
@@ -118,5 +119,6 @@ r.post('/reset-password', sensitiveLimiter, async (req,res) => {
   res.json({message:'Password updated'});
 });
 
-function safeUser(u:any){ return { id:String(u._id), name:u.name,email:u.email,profilePictureUrl:u.profilePictureUrl,business:u.business,deviceLabel:u.deviceLabel,approvalStatus:u.approvalStatus }; }
+function responseAssetUrl(value:any,ownerId:any){const refreshed=refreshedOwnedStorageUrl(value,ownerId);const legacy=String(value||'');return refreshed||(/^https:\/\//i.test(legacy)?legacy:'')}
+function safeUser(u:any){const business=u.business?.toObject?.()||u.business||{};return { id:String(u._id), name:u.name,email:u.email,profilePictureUrl:responseAssetUrl(u.profilePictureUrl,u._id),business:{...business,logoUrl:responseAssetUrl(business.logoUrl,u._id)},deviceLabel:u.deviceLabel,approvalStatus:u.approvalStatus }; }
 export default r;

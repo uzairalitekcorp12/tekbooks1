@@ -1,0 +1,12 @@
+import { Router } from 'express';
+import { z } from 'zod';
+import { Party, Invoice, Transaction } from '../models/index.js';
+import { requireAuth } from '../middleware/auth.js';
+import { idempotency } from '../middleware/security.js';
+const r=Router();r.use(requireAuth);r.use(idempotency);
+const schema=z.object({type:z.enum(['CUSTOMER','SUPPLIER']),name:z.string().trim().min(1).max(120),email:z.string().email().or(z.literal('')).optional(),phone:z.string().max(40).optional(),address:z.string().max(300).optional(),trn:z.string().max(50).optional(),notes:z.string().max(1000).optional()});
+r.get('/',async(req,res)=>{const q:any={userId:req.user._id};if(req.query.type)q.type=req.query.type;const items=await Party.find(q).sort({name:1}).lean();const result=await Promise.all(items.map(async(x:any)=>{const[inv,tx]=await Promise.all([Invoice.aggregate([{$match:{userId:req.user._id,customerId:x._id}},{$group:{_id:null,total:{$sum:'$total'},outstanding:{$sum:'$balance'}}}]),Transaction.aggregate([{$match:{userId:req.user._id,partyId:x._id}},{$group:{_id:null,total:{$sum:'$amount'}}}])]);const invoiceBusiness=Number(inv[0]?.total||0),transactionBusiness=Number(tx[0]?.total||0);return{...x,totalBusiness:x.type==='CUSTOMER'?(invoiceBusiness||transactionBusiness):transactionBusiness,outstanding:x.type==='CUSTOMER'?Number(inv[0]?.outstanding||0):0}}));res.json(result)});
+r.post('/',async(req,res)=>{const p=schema.safeParse(req.body);if(!p.success)return res.status(400).json({message:'Customer/supplier details are invalid.',issues:p.error.flatten()});res.status(201).json(await Party.create({...p.data,userId:req.user._id}))});
+r.put('/:id',async(req,res)=>{const p=schema.partial().safeParse(req.body);if(!p.success)return res.status(400).json({message:'Customer/supplier details are invalid.',issues:p.error.flatten()});const x=await Party.findOneAndUpdate({_id:req.params.id,userId:req.user._id},p.data,{new:true});if(!x)return res.status(404).json({message:'Customer/supplier not found'});res.json(x)});
+r.delete('/:id',async(req,res)=>{const x=await Party.findOneAndDelete({_id:req.params.id,userId:req.user._id});if(!x)return res.status(404).json({message:'Customer/supplier not found'});res.status(204).end()});
+export default r;

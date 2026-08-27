@@ -1,0 +1,19 @@
+{
+  "name": "tekbooks",
+  "private": true,
+  "version": "1.0.9",
+  "scripts": {
+    "setup": "node scripts/install.mjs",
+    "start": "npm run dev",
+    "dev": "node scripts/dev.mjs",
+    "api": "npm --prefix backend start",
+    "app": "npm --prefix mobile start -- --lan --go",
+    "typecheck": "npm --prefix backend run typecheck && npm --prefix mobile run typecheck",
+    "doctor": "npm --prefix mobile exec -- expo-doctor",
+    "clean:mobile": "node scripts/clean-mobile.mjs",
+    "dev:lan": "node scripts/dev.mjs --lan",
+    "dev:tunnel": "node scripts/dev.mjs --tunnel",
+    "network:check": "node scripts/network-check.mjs",
+    "network:windows": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/windows-network-setup.ps1"
+  }
+}

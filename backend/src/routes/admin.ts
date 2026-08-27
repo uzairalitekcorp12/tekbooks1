@@ -1,0 +1,9 @@
+import { Router } from 'express';
+import { env } from '../config/env.js';
+import { User } from '../models/index.js';
+import { sendApprovalEmail } from '../services/email.js';
+const r=Router();
+r.use((req,res,next)=>{if(req.header('x-admin-key')!==env.ADMIN_API_KEY)return res.status(401).json({message:'Invalid admin key'});next();});
+r.get('/users/pending',async(_req,res)=>res.json(await User.find({approvalStatus:'PENDING',emailVerified:true}).select('name email business.name createdAt approvalStatus').sort({createdAt:1}).lean()));
+r.patch('/users/:id/approval',async(req,res)=>{const status=String(req.body?.status||'');if(!['APPROVED','REJECTED'].includes(status))return res.status(400).json({message:'status must be APPROVED or REJECTED'});const u=await User.findByIdAndUpdate(req.params.id,{approvalStatus:status},{new:true});if(!u)return res.status(404).json({message:'User not found'});await sendApprovalEmail(u.email,status==='APPROVED');res.json({id:String(u._id),email:u.email,approvalStatus:u.approvalStatus});});
+export default r;

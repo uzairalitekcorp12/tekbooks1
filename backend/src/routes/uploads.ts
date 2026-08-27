@@ -1,0 +1,12 @@
+import { Router } from 'express';
+import multer from 'multer';
+import { env } from '../config/env.js';
+import { requireAuth } from '../middleware/auth.js';
+import { sensitiveLimiter } from '../middleware/security.js';
+import { isOwnedStorageKey, removeStoredFile, storeFile } from '../services/storage.js';
+const r=Router();
+const allowed=new Set(['image/jpeg','image/png','image/webp','application/pdf']);
+const upload=multer({storage:multer.memoryStorage(),limits:{fileSize:env.MAX_UPLOAD_MB*1024*1024},fileFilter(_req,file,cb){cb(null,allowed.has(file.mimetype));}});
+r.post('/',requireAuth,sensitiveLimiter,upload.single('file'),async(req,res)=>{if(!req.file)return res.status(400).json({message:'Attach a JPEG, PNG, WebP or PDF file'});const stored=await storeFile(req.file,req.user._id);res.status(201).json(stored);});
+r.delete('/',requireAuth,sensitiveLimiter,async(req,res)=>{const value=req.body?.key||req.body?.url;if(!isOwnedStorageKey(value,req.user._id))return res.status(403).json({message:'This file does not belong to the current workspace'});const removed=await removeStoredFile(value);res.json({ok:true,removed});});
+export default r;

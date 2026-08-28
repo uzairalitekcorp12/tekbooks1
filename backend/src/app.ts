@@ -47,6 +47,14 @@ app.get('/health', (_req, res) => res.json({
   time: new Date().toISOString()
 }));
 
+app.get(['/', '/api'], (_req, res) => res.json({
+  ok: true,
+  service: 'tekbooks-api',
+  message: 'TekBooks API is running',
+  health: '/health',
+  readiness: '/ready'
+}));
+
 app.get('/ready', async (_req, res) => {
   try {
     await ensureRuntimeReady();
@@ -98,3 +106,7 @@ app.use((error: any, _req: any, res: any, _next: any) => {
     ...(error?.code ? { code: error.code } : {})
   });
 });
+
+// `src/app.ts` is the first recognized Express entry point Vercel discovers.
+// Keep a default export here so framework detection creates one Express Function.
+export default app;

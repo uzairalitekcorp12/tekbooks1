@@ -23,7 +23,7 @@ npm --prefix backend run approve -- user@example.com
 
 ## Production architecture
 
-- Vercel imports `src/index.ts` as one Express Function.
+- Vercel detects the pinned Express framework and imports `src/app.ts` as one Express Function.
 - MongoDB Atlas stores application data; the Mongoose pool is reused across warm invocations.
 - The APK uploads directly to a private S3 bucket with a five-minute presigned PUT.
 - Private S3 downloads use short-lived presigned redirects, avoiding Vercel's 4.5 MB payload limit.

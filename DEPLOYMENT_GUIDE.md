@@ -243,9 +243,9 @@ The Vercel CLI is not currently installed on this machine. You can deploy from t
 1. Push this repository to a private Git provider repository.
 2. In Vercel, select **Add New → Project** and import it.
 3. Set **Root Directory** to `backend` for the full repository, or `.` when the Git repository contains only the contents of the backend folder.
-4. Vercel should detect the Express app at `src/index.ts`.
+4. Set **Framework Preset** to **Express**. The tracked `backend/vercel.json` pins the same setting, and Vercel detects the default Express export at `src/app.ts`.
 5. Use Node.js 22.
-6. Keep Install Command at its default. Do not set a Build Command or Output Directory; Vercel detects and compiles the default Express export at `src/index.ts`.
+6. Keep Install Command at its default. Do not set a Build Command or Output Directory; Vercel detects and compiles the Express TypeScript entry point.
 7. Add the environment variables below to **Production**. Add a separate safe set to **Preview**, or disable preview deployments. A Vercel Preview also runs with production-style validation.
 
 Required production variables:

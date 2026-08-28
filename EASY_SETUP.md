@@ -312,7 +312,7 @@ The backend folder can be deployed by itself.
 1. Create a **private** GitHub repository named something like `tekbooks-api`.
 2. Put the **contents** of the local `backend` folder at the root of that repository.
 3. Before pushing, confirm the repository does not contain `.env`, `.env.backup-*`, `node_modules`, `dist`, `uploads`, or `.vercel`.
-4. Push the other backend files, including `src`, `package.json`, `package-lock.json`, `tsconfig.json`, `.env.example`, `vercel-env.example.txt`, and `infra`. Do not add a legacy `functions` rule to `vercel.json`; Vercel detects the default Express export at `src/index.ts` automatically.
+4. Push the other backend files, including `src`, `package.json`, `package-lock.json`, `tsconfig.json`, `vercel.json`, `.env.example`, `vercel-env.example.txt`, and `infra`. Do not add a legacy `functions` rule to `vercel.json`; the included file safely pins the framework to Express.
 
 `backend/.gitignore` is already configured to block the secret/local files.
 
@@ -325,9 +325,9 @@ If you instead push the entire TekBooks repository, select `backend` as the Verc
 3. Import the private backend repository.
 4. Choose a stable project name such as `tekbooks-api-company`.
 5. Set Root Directory according to Step 8.
-6. Leave Framework Preset as **Other**.
+6. Set Framework Preset to **Express**. The tracked `backend/vercel.json` also pins this setting so future deployments cannot be treated as an empty static project.
 7. Select Node.js 22.
-8. Leave Build Command and Output Directory unset; Vercel handles the Express TypeScript entry point.
+8. Leave Build Command and Output Directory unset; Vercel handles the Express TypeScript entry point. Keep Install Command at its default.
 9. Open the project's **Environment Variables** section and choose **Production**.
 
 Generate three different production security values from the main TekBooks folder:

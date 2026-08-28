@@ -1,7 +1,7 @@
 import compression from 'compression';
 import cors from 'cors';
 import express from 'express';
-import helmet from 'helmet';
+import * as helmetModule from 'helmet';
 import mongoose from 'mongoose';
 import path from 'node:path';
 import { databaseConnectionMessage } from './config/db.js';
@@ -24,7 +24,7 @@ export const app = express();
 
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
-app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
+app.use(helmetModule.default({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 app.use(cors({
   credentials: false,
   origin(origin, callback) {

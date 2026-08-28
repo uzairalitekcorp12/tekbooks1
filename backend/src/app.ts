@@ -1,9 +1,9 @@
 import compression from 'compression';
 import cors from 'cors';
 import express from 'express';
-import helmet from 'helmet';
 import mongoose from 'mongoose';
 import path from 'node:path';
+import { createRequire } from 'node:module';
 
 import { databaseConnectionMessage } from './config/db.js';
 import { env } from './config/env.js';
@@ -22,6 +22,15 @@ import transactions from './routes/transactions.js';
 import uploads from './routes/uploads.js';
 
 import { ensureStorageReady } from './services/storage.js';
+
+/**
+ * Helmet is loaded through Node's CommonJS compatibility layer.
+ *
+ * This avoids the TypeScript/Helmet module typing issue that
+ * occurs with the current project configuration on Vercel.
+ */
+const require = createRequire(import.meta.url);
+const helmet = require('helmet');
 
 export const app = express();
 
@@ -46,14 +55,14 @@ app.use(
   cors({
     credentials: false,
     origin(origin, callback) {
-      // Allow requests without an Origin header
-      // such as server-to-server requests and health checks.
+      // Allow requests without an Origin header.
+      // This includes server-to-server requests and health checks.
       if (!origin) {
         return callback(null, true);
       }
 
-      // During development, allow all origins when
-      // no explicit CORS origins have been configured.
+      // During development, allow all origins when no
+      // explicit CORS origins have been configured.
       if (
         env.NODE_ENV !== 'production' &&
         env.CORS_ORIGINS.length === 0
@@ -70,7 +79,7 @@ app.use(
 );
 
 /**
- * Compression
+ * Response compression
  */
 app.use(compression());
 
@@ -96,11 +105,11 @@ app.use(
 );
 
 /**
- * Liveness check
+ * Liveness endpoint
  *
- * This endpoint does not depend on MongoDB or storage,
- * which keeps platform health checks useful even when
- * external dependencies are unavailable.
+ * This endpoint intentionally does not depend on MongoDB
+ * or storage so Vercel/platform health checks remain useful
+ * even when external services are unavailable.
  */
 app.get('/health', (_req, res) => {
   res.json({
@@ -113,7 +122,7 @@ app.get('/health', (_req, res) => {
 });
 
 /**
- * Basic API information
+ * API information
  */
 app.get(['/', '/api'], (_req, res) => {
   res.json({
@@ -126,12 +135,12 @@ app.get(['/', '/api'], (_req, res) => {
 });
 
 /**
- * Readiness check
+ * Readiness endpoint
  *
  * Verifies:
  * - Runtime configuration
  * - MongoDB connection
- * - MongoDB ping
+ * - MongoDB availability
  * - Storage availability
  */
 app.get('/ready', async (_req, res) => {
@@ -175,9 +184,10 @@ app.get('/ready', async (_req, res) => {
  * Runtime initialization middleware
  *
  * Vercel imports the Express app without executing
- * the local listener. This middleware initializes and
- * reuses Atlas/S3 connections for serverless and local
- * requests.
+ * a traditional local server listener.
+ *
+ * This middleware initializes and reuses the required
+ * Atlas/S3 connections for serverless and local requests.
  */
 app.use(async (_req, _res, next) => {
   try {
@@ -189,10 +199,13 @@ app.use(async (_req, _res, next) => {
 });
 
 /**
- * Local uploads
+ * Local file storage
  *
- * Only serves files from the local filesystem when
- * local storage is explicitly configured.
+ * Only expose the local uploads directory when the
+ * configured storage driver is "local".
+ *
+ * For Vercel production deployments, use persistent
+ * external storage instead of the local filesystem.
  */
 if (env.STORAGE_DRIVER === 'local') {
   app.use(
@@ -208,7 +221,7 @@ if (env.STORAGE_DRIVER === 'local') {
 }
 
 /**
- * Routes
+ * Application routes
  */
 app.use('/media', media);
 app.use('/api/auth', auth);
@@ -246,7 +259,8 @@ app.use(
       `Request failed: ${message}`
     );
 
-    const status = Number(error?.status) || 500;
+    const status =
+      Number(error?.status) || 500;
 
     const exposeMessage =
       env.NODE_ENV !== 'production' ||
@@ -256,6 +270,7 @@ app.use(
       message: exposeMessage
         ? message
         : 'Unexpected server error',
+
       ...(error?.code
         ? {
             code: error.code
@@ -266,7 +281,7 @@ app.use(
 );
 
 /**
- * Vercel imports this Express app as the serverless
+ * Vercel imports the Express app as the serverless
  * function entry point.
  */
 export default app;

@@ -312,7 +312,7 @@ The backend folder can be deployed by itself.
 1. Create a **private** GitHub repository named something like `tekbooks-api`.
 2. Put the **contents** of the local `backend` folder at the root of that repository.
 3. Before pushing, confirm the repository does not contain `.env`, `.env.backup-*`, `node_modules`, `dist`, `uploads`, or `.vercel`.
-4. Push the other backend files, including `src`, `package.json`, `package-lock.json`, `tsconfig.json`, `vercel.json`, `.env.example`, `vercel-env.example.txt`, and `infra`.
+4. Push the other backend files, including `src`, `package.json`, `package-lock.json`, `tsconfig.json`, `.env.example`, `vercel-env.example.txt`, and `infra`. Do not add a legacy `functions` rule to `vercel.json`; Vercel detects the default Express export at `src/index.ts` automatically.
 
 `backend/.gitignore` is already configured to block the secret/local files.
 

@@ -327,7 +327,8 @@ If you instead push the entire TekBooks repository, select `backend` as the Verc
 5. Set Root Directory according to Step 8.
 6. Leave Framework Preset as **Other**.
 7. Select Node.js 22.
-8. Open the project's **Environment Variables** section and choose **Production**.
+8. Leave Build Command and Output Directory unset; Vercel handles the Express TypeScript entry point.
+9. Open the project's **Environment Variables** section and choose **Production**.
 
 Generate three different production security values from the main TekBooks folder:
 

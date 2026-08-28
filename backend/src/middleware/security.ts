@@ -1,4 +1,4 @@
-import rateLimit from 'express-rate-limit';
+import { rateLimit } from 'express-rate-limit';
 import type { NextFunction, Request, Response } from 'express';
 import { IdempotencyRecord } from '../models/index.js';
 

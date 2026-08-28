@@ -11,6 +11,7 @@ import {
   PutObjectCommand,
   S3Client
 } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { env } from '../config/env.js';
 
 const supportedMimeExtensions = {
@@ -21,7 +22,13 @@ const supportedMimeExtensions = {
 } as const;
 
 export type SupportedUploadMime = keyof typeof supportedMimeExtensions;
-export type StoredFileInfo = { key: string; contentType: string; size: number; modifiedAt?: Date };
+export type StoredFileInfo = {
+  key: string;
+  contentType: string;
+  size: number;
+  modifiedAt?: Date;
+  metadata?: Record<string, string>;
+};
 export type StoredAttachment = StoredFileInfo & { url: string; name: string; mimeType: string };
 
 export class StorageReferenceError extends Error {
@@ -192,6 +199,122 @@ function storageKey(ownerId: unknown, mimeType: SupportedUploadMime) {
   return `${storagePrefix()}/${owner}/${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}${supportedMimeExtensions[mimeType]}`;
 }
 
+export function usesS3Storage() {
+  return env.STORAGE_DRIVER === 's3';
+}
+
+/** Create a short-lived direct PUT so large mobile uploads do not cross Vercel's payload boundary. */
+export async function createPresignedUpload(input: {
+  ownerId: unknown;
+  name?: unknown;
+  mimeType?: unknown;
+  size?: unknown;
+}) {
+  if (!s3 || env.STORAGE_DRIVER !== 's3') return null;
+  const mimeType = String(input.mimeType || '') as SupportedUploadMime;
+  if (!(mimeType in supportedMimeExtensions)) {
+    throw new StorageReferenceError('Attach a JPEG, PNG, WebP or PDF file.', 415, 'UNSUPPORTED_UPLOAD');
+  }
+  const size = Number(input.size);
+  const maxBytes = env.MAX_UPLOAD_MB * 1024 * 1024;
+  if (!Number.isSafeInteger(size) || size < 1) {
+    throw new StorageReferenceError('The selected file size is invalid.', 400, 'INVALID_UPLOAD_SIZE');
+  }
+  if (size > maxBytes) {
+    throw new StorageReferenceError(`Attachment is too large. Maximum size is ${env.MAX_UPLOAD_MB} MB.`, 413, 'UPLOAD_TOO_LARGE');
+  }
+
+  const key = storageKey(input.ownerId, mimeType);
+  const name = safeDisplayName(input.name, `attachment${supportedMimeExtensions[mimeType]}`);
+  const command = new PutObjectCommand({
+    Bucket: env.S3_BUCKET,
+    Key: key,
+    ContentType: mimeType,
+    Metadata: {
+      owner: ownerSegment(input.ownerId),
+      expectedsize: String(size)
+    }
+  });
+  const uploadUrl = await getSignedUrl(s3, command, { expiresIn: env.S3_UPLOAD_URL_TTL_SECONDS });
+  return {
+    direct: true as const,
+    uploadUrl,
+    method: 'PUT' as const,
+    headers: { 'Content-Type': mimeType },
+    expiresIn: env.S3_UPLOAD_URL_TTL_SECONDS,
+    attachment: { key, url: storageUrl(key), name, mimeType, contentType: mimeType, size }
+  };
+}
+
+/** Verify an S3 upload's owner, declared size/type, and file signature before it can be saved in MongoDB. */
+export async function completePresignedUpload(value: any, ownerId: unknown): Promise<StoredAttachment> {
+  if (!s3 || env.STORAGE_DRIVER !== 's3') {
+    throw new StorageReferenceError('Direct upload completion is only available with S3 storage.');
+  }
+  if (!isOwnedStorageKey(value, ownerId)) {
+    throw new StorageReferenceError('This uploaded file does not belong to the current workspace.', 403, 'UPLOAD_OWNER_MISMATCH');
+  }
+  const key = storedKey(value);
+  const expectedMime = String(value?.mimeType || value?.contentType || '');
+  const expectedSize = Number(value?.size);
+  const maxBytes = env.MAX_UPLOAD_MB * 1024 * 1024;
+
+  try {
+    if (!Number.isSafeInteger(expectedSize) || expectedSize < 1 || expectedSize > maxBytes) {
+      throw new StorageReferenceError('The approved upload size is invalid.', 400, 'INVALID_UPLOAD_SIZE');
+    }
+    const file = await statStoredFile(key);
+    if (!file) throw new StorageReferenceError('The uploaded file is missing. Choose the file again.', 400, 'UPLOAD_MISSING');
+    const approvedOwner = ownerSegment(ownerId);
+    const approvedSize = Number(file.metadata?.expectedsize);
+    if (file.metadata?.owner !== approvedOwner) {
+      throw new StorageReferenceError('The uploaded file owner does not match the approved upload.', 403, 'UPLOAD_OWNER_MISMATCH');
+    }
+    if (!Number.isSafeInteger(approvedSize) || approvedSize !== expectedSize) {
+      throw new StorageReferenceError('The uploaded file size approval is invalid.', 400, 'UPLOAD_SIZE_MISMATCH');
+    }
+    if (file.size < 1 || file.size > maxBytes || file.size !== expectedSize) {
+      throw new StorageReferenceError('The uploaded file size does not match the approved upload.', 400, 'UPLOAD_SIZE_MISMATCH');
+    }
+    if (!(file.contentType in supportedMimeExtensions) || file.contentType !== expectedMime) {
+      throw new StorageReferenceError('The uploaded file type does not match the approved upload.', 415, 'UNSUPPORTED_UPLOAD');
+    }
+
+    const sample = await s3.send(new GetObjectCommand({ Bucket: env.S3_BUCKET, Key: key, Range: 'bytes=0-1023' }));
+    if (!sample.Body) throw new StorageReferenceError('The uploaded file could not be verified.', 400, 'UPLOAD_INVALID');
+    const bytes = Buffer.from(await sample.Body.transformToByteArray());
+    if (detectedMime(bytes) !== expectedMime) {
+      throw new StorageReferenceError('The uploaded file contents do not match its file type.', 415, 'UNSUPPORTED_UPLOAD');
+    }
+
+    return {
+      ...file,
+      url: storageUrl(key),
+      name: safeDisplayName(value?.name, `attachment${supportedMimeExtensions[expectedMime as SupportedUploadMime] || ''}`),
+      mimeType: expectedMime
+    };
+  } catch (error) {
+    // Invalid objects should not remain in the bucket. Preserve an otherwise
+    // valid upload when AWS itself has a transient read/check failure.
+    if (error instanceof StorageReferenceError) await removeStoredFile(key).catch(() => false);
+    throw error;
+  }
+}
+
+/** Generate a private S3 GET URL so downloads bypass serverless response-size limits. */
+export async function createPresignedDownloadUrl(value: unknown, name?: unknown, inline = true) {
+  if (!s3 || env.STORAGE_DRIVER !== 's3') return '';
+  const key = storedKey(value);
+  if (!key) return '';
+  const filename = safeDisplayName(name, key.split('/').pop() || 'attachment').replace(/["%']/g, '-');
+  const disposition = `${inline ? 'inline' : 'attachment'}; filename="${filename}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
+  return getSignedUrl(s3, new GetObjectCommand({
+    Bucket: env.S3_BUCKET,
+    Key: key,
+    ResponseContentDisposition: disposition
+  }), { expiresIn: env.S3_DOWNLOAD_URL_TTL_SECONDS });
+}
+
 export async function storeFile(file: Express.Multer.File, ownerId: unknown): Promise<StoredAttachment> {
   const mimeType = detectedMime(file.buffer);
   if (!mimeType) {
@@ -217,6 +340,51 @@ export async function storeFile(file: Express.Multer.File, ownerId: unknown): Pr
   return { key, url: storageUrl(key), name, mimeType, contentType: mimeType, size: file.buffer.length };
 }
 
+/** Store a server-generated PDF/XLSX so Vercel only returns a small redirect. */
+export async function storeGeneratedDownload(buffer: Buffer, ownerId: unknown, name: string, contentType: string): Promise<StoredAttachment> {
+  if (!s3 || env.STORAGE_DRIVER !== 's3') throw new Error('Generated cloud downloads require S3 storage.');
+  const owner = ownerSegment(ownerId);
+  if (!owner) throw new Error('Generated download owner is invalid.');
+  const allowed = new Set(['application/pdf', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']);
+  if (!allowed.has(contentType)) throw new Error('Generated download type is invalid.');
+  const extension = contentType === 'application/pdf' ? '.pdf' : '.xlsx';
+  const key = `${storagePrefix()}/${owner}/exports/${Date.now()}-${crypto.randomUUID()}${extension}`;
+  const safeName = safeDisplayName(name, `TekBooks-Export${extension}`);
+  await s3.send(new PutObjectCommand({
+    Bucket: env.S3_BUCKET,
+    Key: key,
+    Body: buffer,
+    ContentType: contentType,
+    Metadata: { owner, generated: 'true' }
+  }));
+  return { key, url: storageUrl(key), name: safeName, mimeType: contentType, contentType, size: buffer.length };
+}
+
+/** Remove private generated exports after 24 hours without requiring an S3 lifecycle rule. */
+export async function cleanupGeneratedDownloads(ownerId: unknown, olderThanMs = 24 * 60 * 60 * 1000) {
+  if (!s3 || env.STORAGE_DRIVER !== 's3') return 0;
+  const owner = ownerSegment(ownerId);
+  if (!owner) return 0;
+  const prefix = `${storagePrefix()}/${owner}/exports/`;
+  const cutoff = Date.now() - olderThanMs;
+  let continuationToken: string | undefined;
+  let removed = 0;
+  do {
+    const page = await s3.send(new ListObjectsV2Command({
+      Bucket: env.S3_BUCKET,
+      Prefix: prefix,
+      ContinuationToken: continuationToken
+    }));
+    for (const item of page.Contents || []) {
+      if (!item.Key || !item.LastModified || item.LastModified.getTime() >= cutoff) continue;
+      await s3.send(new DeleteObjectCommand({ Bucket: env.S3_BUCKET, Key: item.Key }));
+      removed += 1;
+    }
+    continuationToken = page.IsTruncated ? page.NextContinuationToken : undefined;
+  } while (continuationToken);
+  return removed;
+}
+
 export async function statStoredFile(value: unknown): Promise<StoredFileInfo | null> {
   const key = storedKey(value);
   if (!key) return null;
@@ -224,7 +392,13 @@ export async function statStoredFile(value: unknown): Promise<StoredFileInfo | n
     if (!s3) return null;
     try {
       const out = await s3.send(new HeadObjectCommand({ Bucket: env.S3_BUCKET, Key: key }));
-      return { key, contentType: out.ContentType || mimeFromKey(key), size: Number(out.ContentLength || 0), modifiedAt: out.LastModified };
+      return {
+        key,
+        contentType: out.ContentType || mimeFromKey(key),
+        size: Number(out.ContentLength || 0),
+        modifiedAt: out.LastModified,
+        metadata: out.Metadata
+      };
     } catch (error: any) {
       if (isMissingObject(error)) return null;
       throw error;

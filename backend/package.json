@@ -14,17 +14,21 @@
     "cf:types": "npx wrangler types",
     "build": "tsc",
     "start:prod": "node dist/index.js",
+    "config:check": "npm run build --silent && node dist/scripts/config-check.js",
     "db:check": "tsx src/scripts/db-check.ts",
     "storage:check": "tsx src/scripts/storage-check.ts",
+    "storage:presign-check": "npm run build --silent && node dist/scripts/presign-check.js",
     "storage:setup": "tsx src/scripts/storage-setup.ts",
     "storage:cleanup": "tsx src/scripts/storage-cleanup.ts",
-    "production:check": "tsx src/scripts/production-check.ts"
+    "production:check": "npm run build --silent && node dist/scripts/production-check.js",
+    "system:check": "npm run build --silent && node dist/scripts/system-check.js"
   },
   "engines": {
     "node": ">=20.19.0"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.888.0",
+    "@aws-sdk/client-s3": "3.1119.0",
+    "@aws-sdk/s3-request-presigner": "3.1119.0",
     "bcryptjs": "^3.0.2",
     "compression": "^1.8.1",
     "cors": "^2.8.5",
@@ -50,5 +54,8 @@
     "@types/pdfkit": "^0.17.3",
     "tsx": "^4.20.5",
     "typescript": "^5.9.2"
+  },
+  "overrides": {
+    "uuid": "^11.1.1"
   }
 }

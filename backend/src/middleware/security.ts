@@ -5,6 +5,7 @@ import { IdempotencyRecord } from '../models/index.js';
 export const globalLimiter = rateLimit({ windowMs: 60_000, limit: 120, standardHeaders: 'draft-8', legacyHeaders: false });
 export const authLimiter = rateLimit({ windowMs: 15*60_000, limit: 20, standardHeaders: 'draft-8', legacyHeaders: false });
 export const sensitiveLimiter = rateLimit({ windowMs: 60_000, limit: 8, standardHeaders: 'draft-8', legacyHeaders: false });
+export const uploadLimiter = rateLimit({ windowMs: 60_000, limit: 30, standardHeaders: 'draft-8', legacyHeaders: false });
 
 export async function idempotency(req: Request, res: Response, next: NextFunction) {
   if (!['POST','PUT','PATCH'].includes(req.method)) return next();

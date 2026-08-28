@@ -52,13 +52,24 @@ if (tunnel) {
   console.error('Could not resolve a LAN IPv4 address. Use `npm run dev:tunnel` or fix mobile/.env.\n');
 }
 
-run('backend', ['start']);
+const backendBaseUrl = !tunnel && lan.host ? `http://${lan.host}:4000` : 'http://localhost:4000';
+console.log(`API links generated for the phone: ${backendBaseUrl}`);
+run('backend', ['start'], { APP_BASE_URL: backendBaseUrl });
 
 if (tunnel) {
-  run('mobile', ['start', '--', '--tunnel', '--go']);
+  run('mobile', ['start', '--', '--tunnel', '--go'], {
+    // The public Expo tunnel reaches Metro; Metro then proxies API/media paths
+    // to localhost:4000. This works even when the phone is on another network.
+    EXPO_PUBLIC_AUTO_LAN: 'true',
+    EXPO_PUBLIC_PROXY_API_THROUGH_METRO: 'true',
+  });
 } else {
   const expoEnv = lan.host
     ? {
+        // Always override a stale mobile/.env value for this development session.
+        EXPO_PUBLIC_API_URL: `http://${lan.host}:4000/api`,
+        EXPO_PUBLIC_AUTO_LAN: 'true',
+        EXPO_PUBLIC_PROXY_API_THROUGH_METRO: 'true',
         // EXPO_PACKAGER_PROXY_URL is the current Expo CLI escape hatch for the URL advertised to devices.
         EXPO_PACKAGER_PROXY_URL: `http://${lan.host}:8081`,
         // Keep this too for SDK 54 compatibility, although newer CLI paths may ignore it.

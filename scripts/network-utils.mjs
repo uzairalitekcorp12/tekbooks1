@@ -59,13 +59,28 @@ export function resolveLanHost(root, env = process.env) {
   const candidates = listLanCandidates();
   if (isPrivateIpv4(apiHost)) {
     const matching = candidates.find(item => item.address === apiHost);
-    return {
-      host: apiHost,
-      source: matching ? 'mobile/.env API URL + active adapter' : 'mobile/.env API URL',
-      apiUrl,
-      candidates,
-      warning: matching ? '' : `The API host ${apiHost} is not present on an active local adapter. If you changed Wi-Fi, update mobile/.env.`,
-    };
+    if (matching) {
+      return {
+        host: apiHost,
+        source: 'mobile/.env API URL + active adapter',
+        apiUrl,
+        candidates,
+        warning: '',
+      };
+    }
+
+    // A private address in .env is only a local-development hint. Prefer the
+    // active adapter after a Wi-Fi change instead of advertising a stale host.
+    const best = candidates[0];
+    if (best) {
+      return {
+        host: best.address,
+        source: `network adapter ${best.name}`,
+        apiUrl,
+        candidates,
+        warning: `Ignored stale mobile/.env host ${apiHost}; this session uses ${best.address}.`,
+      };
+    }
   }
 
   const best = candidates[0];

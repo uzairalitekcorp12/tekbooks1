@@ -6,7 +6,12 @@
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "doctor": "npx expo-doctor",
+    "build:env:check": "node scripts/validate-build-env.mjs",
+    "eas-build-post-install": "node scripts/validate-build-env.mjs",
+    "build:apk": "npx eas-cli build --platform android --profile preview",
+    "build:aab": "npx eas-cli build --platform android --profile production"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",

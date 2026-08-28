@@ -439,7 +439,7 @@ router.get('/:id/pdf', async (req, res) => {
   if (!check.ok) return res.status(422).json({ message: 'Invoice PDF cannot be generated yet.', code: 'INVOICE_PDF_NOT_READY', issues: check.issues, warnings: check.warnings });
   try {
     const buffer = await renderInvoicePdf(invoice, business, business.currency || 'AED', check.logo);
-    return sendDownload(res, buffer, 'application/pdf', `${safeText(invoice.invoiceNumber) || 'Invoice'}.pdf`);
+    return sendDownload(res, buffer, 'application/pdf', `${safeText(invoice.invoiceNumber) || 'Invoice'}.pdf`, req.user._id);
   } catch (error: any) {
     console.error('Invoice PDF generation failed', error);
     return res.status(500).json({

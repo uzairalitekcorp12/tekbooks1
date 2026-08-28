@@ -1,4 +1,10 @@
 import type { Response } from 'express';
+import {
+  cleanupGeneratedDownloads,
+  createPresignedDownloadUrl,
+  storeGeneratedDownload,
+  usesS3Storage
+} from '../services/storage.js';
 
 function cleanFilename(value: string) {
   const clean = String(value || 'download')
@@ -23,8 +29,18 @@ export function contentDisposition(filename: string) {
   return `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(clean)}`;
 }
 
-/** Send a complete binary file without proxy/compression transformations. */
-export function sendDownload(res: Response, buffer: Buffer, contentType: string, filename: string) {
+/**
+ * Send locally, or use private S3 + a signed redirect in cloud-backed mode so
+ * large PDF/XLSX responses do not cross Vercel's function body limit.
+ */
+export async function sendDownload(res: Response, buffer: Buffer, contentType: string, filename: string, ownerId?: unknown) {
+  if (ownerId && usesS3Storage()) {
+    await cleanupGeneratedDownloads(ownerId).catch(error => console.warn('Generated export cleanup failed:', error?.message || error));
+    const stored = await storeGeneratedDownload(buffer, ownerId, filename, contentType);
+    const url = await createPresignedDownloadUrl(stored, filename, false);
+    res.setHeader('Cache-Control', 'private, no-store');
+    return res.redirect(302, url);
+  }
   res.status(200);
   res.setHeader('Content-Type', contentType);
   res.setHeader('Content-Length', String(buffer.length));

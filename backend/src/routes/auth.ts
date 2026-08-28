@@ -8,6 +8,7 @@ import { env } from '../config/env.js';
 import { sendExpoPush } from '../services/push.js';
 import { requireAuth } from '../middleware/auth.js';
 import { refreshedOwnedStorageUrl } from '../services/storage.js';
+import { assertEmailRecipientAllowed } from '../services/email.js';
 
 const r = Router();
 r.use(authLimiter);
@@ -16,6 +17,7 @@ r.post('/signup', async (req, res) => {
   const p = z.object({ name:z.string().min(2).max(80), email:z.string().email(), password:z.string().min(8).max(128), businessName:z.string().min(2).max(120) }).safeParse(req.body);
   if (!p.success) return res.status(400).json({ message:'Invalid signup details', issues:p.error.flatten() });
   const email = p.data.email.toLowerCase();
+  assertEmailRecipientAllowed(email);
   if (await User.exists({ email })) return res.status(409).json({ message:'Email already registered' });
   const user = await User.create({ name:p.data.name, email, passwordHash:await hashPassword(p.data.password), business:{ name:p.data.businessName, email } });
   await createOtp(user, 'SIGNUP');

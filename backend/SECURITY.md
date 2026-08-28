@@ -12,7 +12,10 @@
 - Global, auth and sensitive-operation rate limiters reduce brute force and submission flooding.
 - `Idempotency-Key` records prevent duplicate POST/PUT/PATCH effects caused by retries/double taps.
 - JSON request size limit: 1 MB.
-- Attachments: JPEG/PNG/WebP/PDF only, size capped by `MAX_UPLOAD_MB` (default 10 MB).
+- Attachments: JPEG/PNG/WebP/PDF only, size capped by `MAX_UPLOAD_MB` (default 10 MB). S3 uploads are completed only after the API verifies workspace ownership, object size, declared MIME type and file signature.
+- Production upload/download bodies travel directly between the installed app and private S3 through short-lived presigned URLs; S3 credentials are never sent to the app.
+- Generated invoice/report downloads are private S3 objects with short-lived redirects; expired generated exports are removed after 24 hours when that owner next exports.
+- S3 uses four explicit backend-only values: region, private bucket name, dedicated IAM access-key ID, and dedicated IAM secret. None is sent to the APK.
 - Helmet security headers and explicit CORS middleware.
 - All business queries are scoped server-side by authenticated user ID.
 - OTPs are bcrypt-hashed, expire after 10 minutes, are single-use and allow at most 5 failed attempts.
@@ -32,6 +35,7 @@
 10. Move access tokens to short lifetimes + refresh-token rotation for a higher-security release.
 11. Add organization/role tables before allowing multiple users per company.
 12. Add automated dependency/security scanning in CI and centralized error/abuse monitoring.
+13. The in-process rate limiter is a useful per-instance layer, but it is not a distributed quota across Vercel instances. Add a shared Redis/edge/WAF rate limiter before broad public scale.
 
 ## Device identifier limitation
 

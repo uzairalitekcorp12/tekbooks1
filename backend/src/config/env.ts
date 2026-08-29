@@ -49,6 +49,7 @@ const baseSchema = z.object({
   S3_SECRET_ACCESS_KEY: z.string().default(''),
   S3_BUCKET: z.string().min(3).default('tekbooks'),
   S3_PUBLIC_BASE_URL: optionalUrl,
+  S3_CORS_ORIGINS: z.string().default('*'),
   S3_UPLOAD_URL_TTL_SECONDS: z.coerce.number().int().min(60).max(900).default(300),
   S3_DOWNLOAD_URL_TTL_SECONDS: z.coerce.number().int().min(60).max(3600).default(300),
   EXPO_PUSH_ACCESS_TOKEN: z.string().default('')
@@ -122,6 +123,7 @@ const parsed = schema.parse(process.env);
 export const env = {
   ...parsed,
   CORS_ORIGINS: parsed.CORS_ORIGINS.split(',').map(value => value.trim()).filter(Boolean),
+  S3_CORS_ORIGINS: parsed.S3_CORS_ORIGINS.split(',').map(value => value.trim()).filter(Boolean),
   MEDIA_SIGNING_SECRET: parsed.MEDIA_SIGNING_SECRET || parsed.JWT_SECRET,
   IS_SERVERLESS: process.env.VERCEL === '1'
 };

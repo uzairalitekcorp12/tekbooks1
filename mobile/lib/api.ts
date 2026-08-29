@@ -1,10 +1,14 @@
 import Constants from 'expo-constants';
 import {fetch as expoFetch} from 'expo/fetch';
-import {File} from 'expo-file-system';
+import {File as ExpoFile} from 'expo-file-system';
 import * as SecureStore from 'expo-secure-store';
+import {Platform} from 'react-native';
 import {APP_CONFIG} from '@/config/app';
 
-const RAW_CONFIGURED_API=(process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:4000/api').replace(/\/$/,'');
+// This public URL is intentionally safe to embed in APK/AAB bundles. `npm run dev`
+// overrides it with the current LAN backend for a local full-stack session.
+export const DEFAULT_PUBLIC_API_URL='https://tekbooks-khaki.vercel.app/api';
+const RAW_CONFIGURED_API=(process.env.EXPO_PUBLIC_API_URL||DEFAULT_PUBLIC_API_URL).trim().replace(/\/$/,'');
 function parsedUrl(url:string){try{return new URL(url)}catch{return null}}
 function hostOf(url:string){return parsedUrl(url)?.hostname||''}
 function isPrivateLanHost(host:string){return /^(?:10\.|192\.168\.|172\.(?:1[6-9]|2\d|3[01])\.)/.test(host)}
@@ -28,7 +32,7 @@ const metroOrigin=runtimeIsDev?metroHttpOrigin():'';
 const detectedLan=runtimeIsDev&&autoLan&&isLocalConfiguredHost?metroLanHost():'';
 // Expo Go can route all backend paths through Metro. That makes tunnel mode work
 // across different networks and prevents an old private IP from surviving a Wi-Fi change.
-const resolvedApi=runtimeIsDev&&proxyThroughMetro&&metroOrigin
+const resolvedApi=runtimeIsDev&&proxyThroughMetro&&isLocalConfiguredHost&&metroOrigin
   ?`${metroOrigin}/api`
   :detectedLan
     ?`http://${detectedLan}:4000/api`
@@ -47,7 +51,7 @@ export function setRuntimeAuthToken(token:string|null){runtimeAuthToken=token}
 export async function getAuthToken(){return runtimeAuthToken===undefined?await SecureStore.getItemAsync('tekbooks_token'):runtimeAuthToken}
 
 export class TekBooksApiError extends Error{status?:number;code?:string;body?:any;isNetwork?:boolean;constructor(message:string,extra:any={}){super(message);Object.assign(this,extra)}}
-function networkMessage(){return `${APP_CONFIG.name} cannot reach the workspace server (${API_ORIGIN}). Confirm the backend is running and this phone can access the same network.`}
+function networkMessage(){return `${APP_CONFIG.name} cannot reach its API (${API_ORIGIN}). Check the configured API URL and your internet or local-network connection.`}
 function issueDetails(issues:any){
   if(!issues)return'';
   if(Array.isArray(issues))return issues.map(String).filter(Boolean).slice(0,4).join('\n');
@@ -61,7 +65,8 @@ function responseMessage(body:any,status:number){const base=body?.message||`Requ
 async function requestOnce(path:string,options:ApiOptions={}){
   const token=await getAuthToken();
   const {timeoutMs=DEFAULT_TIMEOUT_MS,...fetchOptions}=options;
-  const headers:any={Accept:'application/json',...(fetchOptions.body instanceof FormData?{}:{'Content-Type':'application/json'}),...(token?{Authorization:`Bearer ${token}`} : {}),...(fetchOptions.headers||{})};
+  const hasJsonBody=fetchOptions.body!==undefined&&fetchOptions.body!==null&&!(fetchOptions.body instanceof FormData);
+  const headers:any={Accept:'application/json',...(hasJsonBody?{'Content-Type':'application/json'}:{}),...(token?{Authorization:`Bearer ${token}`} : {}),...(fetchOptions.headers||{})};
   const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),timeoutMs);
   try{
     const res=await fetch(`${API_URL}${path}`,{...fetchOptions,headers,signal:controller.signal});
@@ -74,10 +79,21 @@ async function requestOnce(path:string,options:ApiOptions={}){
   }finally{clearTimeout(timer)}
 }
 export async function api(path:string,options:ApiOptions={}){try{return await requestOnce(path,options)}catch(e:any){const method=String(options.method||'GET').toUpperCase();if(e?.isNetwork&&method==='GET'){await new Promise(r=>setTimeout(r,450));return requestOnce(path,options)}throw e}}
-export async function checkApiHealth(){const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),5000);try{const r=await fetch(`${API_ORIGIN}/health`,{signal:controller.signal});return r.ok}catch{return false}finally{clearTimeout(timer)}}
+export async function checkApiHealth(){const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),5000);try{const r=await fetch(`${API_ORIGIN}/health`,{headers:{Accept:'application/json'},signal:controller.signal});return r.ok}catch{return false}finally{clearTimeout(timer)}}
+export async function checkApiReadiness(){
+  const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),8000);
+  try{
+    const response=await fetch(`${API_ORIGIN}/ready`,{headers:{Accept:'application/json'},signal:controller.signal});
+    let body:any=null;try{body=await response.json()}catch{}
+    return{ok:response.ok,reachable:true,status:response.status,message:String(body?.message||'')};
+  }catch(e:any){return{ok:false,reachable:false,status:0,message:String(e?.message||'Network request failed')}}
+  finally{clearTimeout(timer)}
+}
 function localUploadPath(url:string){try{const parsed=new URL(url);return parsed.pathname.startsWith('/uploads/')?parsed.pathname:''}catch{return url.startsWith('/uploads/')?url:''}}
 export function absoluteAssetUrl(url?:string){if(!url)return '';const local=localUploadPath(url);if(local)return `${API_ORIGIN}${local}`;if(/^https?:\/\//i.test(url))return url;return `${API_ORIGIN}${url.startsWith('/')?'':'/'}${url}`}
-function uploadMimeType(asset:{name?:string;mimeType?:string},file:File){
+type UploadAssetInput={uri:string;name?:string;mimeType?:string;size?:number|null;file?:Blob|null};
+type UploadFileBody=Blob|ExpoFile;
+function uploadMimeType(asset:UploadAssetInput,file:{type?:string|null;name?:string}){
   const declared=String(asset.mimeType||file.type||'').toLowerCase();
   if(declared==='image/jpg')return'image/jpeg';
   if(['image/jpeg','image/png','image/webp','application/pdf'].includes(declared))return declared;
@@ -88,22 +104,45 @@ function uploadMimeType(asset:{name?:string;mimeType?:string},file:File){
   if(name.endsWith('.pdf'))return'application/pdf';
   return'application/octet-stream';
 }
-export async function uploadAsset(asset:{uri:string;name?:string;mimeType?:string}){
-  const healthy=await checkApiHealth();if(!healthy)throw new TekBooksApiError(networkMessage(),{isNetwork:true});
-  const file=new File(asset.uri);const mimeType=uploadMimeType(asset,file);const name=asset.name||file.name||'attachment';
-  const presigned=await api('/uploads/presign',{method:'POST',body:JSON.stringify({name,mimeType,size:file.size})});
+async function uploadBody(asset:UploadAssetInput):Promise<UploadFileBody>{
+  if(asset.file&&Number.isFinite(asset.file.size))return asset.file;
+  if(Platform.OS!=='web')return new ExpoFile(asset.uri);
+  const response=await fetch(asset.uri);if(!response.ok)throw new TekBooksApiError('The selected browser file could not be read. Choose it again.');
+  return response.blob();
+}
+function storageUploadMessage(error:any){
+  const corsHint=Platform.OS==='web'?' The S3 bucket must allow browser PUT requests (CORS) from this site.':'';
+  return `The file could not be uploaded to secure storage.${corsHint} ${error?.message||'Try again.'}`.trim();
+}
+export async function uploadAsset(asset:UploadAssetInput){
+  const ready=await checkApiReadiness();
+  if(!ready.ok){
+    const message=ready.reachable
+      ?`The API is online, but its database or storage is not ready (${API_ORIGIN}). ${ready.message||'Try again shortly.'}`
+      :networkMessage();
+    throw new TekBooksApiError(message,{status:ready.status||undefined,isNetwork:!ready.reachable});
+  }
+  const file=await uploadBody(asset);const mimeType=uploadMimeType(asset,file);const fileName='name'in file&&typeof file.name==='string'?file.name:'';const name=asset.name||fileName||'attachment';
+  const size=Number(asset.size||file.size||0);
+  if(!Number.isSafeInteger(size)||size<1)throw new TekBooksApiError('The selected file has no readable size. Choose it again.');
+  const presigned=await api('/uploads/presign',{method:'POST',body:JSON.stringify({name,mimeType,size})});
   if(presigned?.direct){
     const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),UPLOAD_TIMEOUT_MS);
     try{
       const uploaded=await expoFetch(presigned.uploadUrl,{method:'PUT',headers:presigned.headers||{'Content-Type':mimeType},body:file,signal:controller.signal});
-      if(!uploaded.ok)throw new TekBooksApiError(`Storage upload failed (${uploaded.status}). Try again.`,{status:uploaded.status});
+      if(!uploaded.ok){
+        const details=await uploaded.text().catch(()=>'');const storageCode=details.match(/<Code>([^<]+)<\/Code>/)?.[1];
+        throw new TekBooksApiError(`Storage upload failed (${uploaded.status}${storageCode?`, ${storageCode}`:''}). Try again.`,{status:uploaded.status});
+      }
       return api('/uploads/complete',{method:'POST',body:JSON.stringify({attachment:presigned.attachment}),timeoutMs:DEFAULT_TIMEOUT_MS});
     }catch(e:any){
       if(e instanceof TekBooksApiError)throw e;
-      throw new TekBooksApiError(`The file could not be uploaded to secure storage. ${e?.message||'Try again.'}`,{isNetwork:true});
+      throw new TekBooksApiError(storageUploadMessage(e),{isNetwork:true});
     }finally{clearTimeout(timer)}
   }
-  const form=new FormData();form.append('file',{uri:asset.uri,name,type:mimeType} as any);
+  const form=new FormData();
+  if(Platform.OS==='web')form.append('file',file as Blob,name);
+  else form.append('file',{uri:asset.uri,name,type:mimeType} as any);
   return api('/uploads',{method:'POST',body:form,timeoutMs:UPLOAD_TIMEOUT_MS});
 }
 export async function deleteUploadedAsset(asset:any){if(!asset)return false;try{await api('/uploads',{method:'DELETE',body:JSON.stringify({key:asset.key,url:asset.url||asset})});return true}catch{return false}}

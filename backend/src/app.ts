@@ -61,12 +61,10 @@ app.use(
         return callback(null, true);
       }
 
-      // During development, allow all origins when no
-      // explicit CORS origins have been configured.
-      if (
-        env.NODE_ENV !== 'production' &&
-        env.CORS_ORIGINS.length === 0
-      ) {
+      // TekBooks uses bearer tokens, not browser cookies. An empty list (or "*")
+      // therefore exposes the API to browser clients without weakening route auth.
+      // Configure an explicit comma-separated list to restrict browser deployments.
+      if (env.CORS_ORIGINS.length === 0 || env.CORS_ORIGINS.includes('*')) {
         return callback(null, true);
       }
 
@@ -115,7 +113,7 @@ app.get('/health', (_req, res) => {
   res.json({
     ok: true,
     service: 'tekbooks-api',
-    version: '1.0.9',
+    version: '1.0.10',
     environment: env.NODE_ENV,
     time: new Date().toISOString()
   });

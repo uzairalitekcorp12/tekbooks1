@@ -1,2 +1,2 @@
-import {ensureStorageReady} from '../services/storage.js';
-try{const result=await ensureStorageReady(false);console.log('Storage check passed:',result)}catch(error:any){console.error('Storage check failed:',error?.message||error);process.exit(1)}
+import {ensureStorageReady,inspectStorageCors} from '../services/storage.js';
+try{const storage=await ensureStorageReady(false);const cors=await inspectStorageCors();if(cors.required&&!cors.configured)throw new Error('S3 bucket CORS is missing the browser PUT rule. Run npm run storage:setup.');console.log('Storage check passed:',{storage,cors})}catch(error:any){console.error('Storage check failed:',error?.message||error);process.exit(1)}

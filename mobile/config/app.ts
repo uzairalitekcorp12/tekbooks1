@@ -1,5 +1,5 @@
 /**
- * TekBooks application configuration — v1.0.9.
+ * TekBooks application configuration — v1.0.10.
  *
  * This is the primary mobile source of truth for product identity, customer-facing
  * copy, theme colors, defaults, navigation labels, image presentation and lists.
@@ -12,7 +12,7 @@
  */
 export const APP_CONFIG = {
   name: 'TekBooks',
-  version: '1.0.9',
+  version: '1.0.10',
   shortMark: 'TB',
   tagline: 'Clarity for every business decision',
   poweredBy: 'Powered by TekBooks',

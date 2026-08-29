@@ -7,7 +7,7 @@ const warnings: string[] = [];
 if (env.NODE_ENV !== 'production') warnings.push('NODE_ENV is not production; strict production validation was not applied.');
 if (env.MEDIA_ALLOW_LEGACY_SIGNATURES) warnings.push('Set MEDIA_ALLOW_LEGACY_SIGNATURES=false after old media links have been refreshed.');
 if (env.STORAGE_PUBLIC_MODE === 'direct') warnings.push('Direct public storage is enabled; proxy mode with private presigned downloads is safer.');
-if (env.CORS_ORIGINS.length === 0) warnings.push('No browser origins are allowed. This is correct for the APK-only deployment.');
+if (env.CORS_ORIGINS.length === 0 || env.CORS_ORIGINS.includes('*')) warnings.push('Browser API access is allowed from every origin. Set CORS_ORIGINS to restrict web deployments; bearer authentication remains required.');
 if (env.RESEND_TEST_MODE) warnings.push('Resend test mode is enabled. Email and email-based signup work only for RESEND_TEST_RECIPIENT until you verify a domain.');
 
 try {

@@ -60,6 +60,7 @@ if (tunnel) {
   run('mobile', ['start', '--', '--tunnel', '--go'], {
     // The public Expo tunnel reaches Metro; Metro then proxies API/media paths
     // to localhost:4000. This works even when the phone is on another network.
+    EXPO_PUBLIC_API_URL: 'http://127.0.0.1:4000/api',
     EXPO_PUBLIC_AUTO_LAN: 'true',
     EXPO_PUBLIC_PROXY_API_THROUGH_METRO: 'true',
   });

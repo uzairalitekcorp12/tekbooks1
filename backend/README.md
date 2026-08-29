@@ -1,4 +1,4 @@
-# TekBooks API v1.0.9
+# TekBooks API v1.0.10
 
 Node.js, Express, MongoDB, private S3 storage, and Resend API for TekBooks.
 

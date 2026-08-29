@@ -6,6 +6,8 @@
       "Effect": "Allow",
       "Action": [
         "s3:GetBucketLocation",
+        "s3:GetBucketCORS",
+        "s3:PutBucketCORS",
         "s3:ListBucket"
       ],
       "Resource": "arn:aws:s3:::REPLACE_WITH_BUCKET_NAME"
@@ -22,4 +24,3 @@
     }
   ]
 }
-

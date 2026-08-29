@@ -2,6 +2,7 @@
 # Never replace placeholders in this tracked file and never commit real secrets.
 NODE_ENV=production
 APP_BASE_URL=https://YOUR-PROJECT.vercel.app
+CORS_ORIGINS=*
 MONGODB_URI=mongodb+srv://YOUR-ATLAS-CONNECTION
 MONGODB_DB_NAME=tekbooks
 JWT_SECRET=GENERATE_WITH_NPM_RUN_SECRETS_PRODUCTION
@@ -16,6 +17,7 @@ S3_REGION=YOUR_AWS_BUCKET_REGION
 S3_BUCKET=YOUR_EXACT_PRIVATE_BUCKET_NAME
 S3_ACCESS_KEY_ID=YOUR_DEDICATED_IAM_ACCESS_KEY_ID
 S3_SECRET_ACCESS_KEY=YOUR_DEDICATED_IAM_SECRET_ACCESS_KEY
+S3_CORS_ORIGINS=*
 
 # Later, after verifying a domain in Resend:
 # RESEND_FROM=TekBooks <no-reply@mail.yourcompany.com>

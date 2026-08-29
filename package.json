@@ -1,7 +1,7 @@
 {
   "name": "tekbooks",
   "private": true,
-  "version": "1.0.9",
+  "version": "1.0.10",
   "scripts": {
     "setup": "node scripts/install.mjs",
     "start": "npm run dev",
@@ -17,6 +17,7 @@
     "system:check": "node scripts/run-backend-system-check.mjs",
     "secrets:production": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/create-production-secrets.ps1",
     "configure:local": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/configure-local.ps1",
+    "mobile:env": "node scripts/setup-mobile-env.mjs",
     "build:apk": "npm --prefix mobile run build:apk",
     "build:aab": "npm --prefix mobile run build:aab",
     "clean:mobile": "node scripts/clean-mobile.mjs",

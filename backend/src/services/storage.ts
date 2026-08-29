@@ -4,10 +4,12 @@ import crypto from 'node:crypto';
 import {
   CreateBucketCommand,
   DeleteObjectCommand,
+  GetBucketCorsCommand,
   GetObjectCommand,
   HeadBucketCommand,
   HeadObjectCommand,
   ListObjectsV2Command,
+  PutBucketCorsCommand,
   PutObjectCommand,
   S3Client
 } from '@aws-sdk/client-s3';
@@ -50,6 +52,76 @@ const s3 = env.STORAGE_DRIVER === 's3' ? new S3Client({
     ? { accessKeyId: env.S3_ACCESS_KEY_ID, secretAccessKey: env.S3_SECRET_ACCESS_KEY }
     : undefined
 }) : null;
+
+const STORAGE_CORS_RULE_ID = 'TekBooksDirectUploads';
+
+function storageCorsRule() {
+  return {
+    ID: STORAGE_CORS_RULE_ID,
+    AllowedOrigins: env.S3_CORS_ORIGINS.length ? env.S3_CORS_ORIGINS : ['*'],
+    AllowedMethods: ['GET', 'HEAD', 'PUT'],
+    AllowedHeaders: ['*'],
+    ExposeHeaders: ['ETag'],
+    MaxAgeSeconds: 3600
+  };
+}
+
+function isMissingCorsConfiguration(error: any) {
+  return error?.name === 'NoSuchCORSConfiguration' || error?.Code === 'NoSuchCORSConfiguration' || error?.$metadata?.httpStatusCode === 404;
+}
+
+function sameValues(actual: string[] | undefined, expected: string[]) {
+  return actual?.length === expected.length && expected.every(value => actual.includes(value));
+}
+
+export async function inspectStorageCors() {
+  if (env.STORAGE_DRIVER !== 's3') return { driver: 'local', required: false, configured: true } as const;
+  if (!s3) throw new Error('S3 client is not configured');
+  let rules: any[] = [];
+  try {
+    const result = await s3.send(new GetBucketCorsCommand({ Bucket: env.S3_BUCKET }));
+    rules = result.CORSRules || [];
+  } catch (error: any) {
+    if (!isMissingCorsConfiguration(error)) throw error;
+  }
+  const expected = storageCorsRule();
+  const configured = rules.some(rule =>
+    sameValues(rule.AllowedOrigins, expected.AllowedOrigins) &&
+    sameValues(rule.AllowedMethods, expected.AllowedMethods) &&
+    sameValues(rule.AllowedHeaders, expected.AllowedHeaders)
+  );
+  return { driver: 's3', required: true, configured, origins: expected.AllowedOrigins, rules } as const;
+}
+
+/** Apply the bucket CORS rule required by browser-based presigned PUT uploads. */
+export async function ensureStorageCors() {
+  if (env.STORAGE_DRIVER !== 's3') return { driver: 'local', required: false, configured: true, changed: false } as const;
+  if (!s3) throw new Error('S3 client is not configured');
+  let rules: any[] = [];
+  try {
+    const result = await s3.send(new GetBucketCorsCommand({ Bucket: env.S3_BUCKET }));
+    rules = result.CORSRules || [];
+  } catch (error: any) {
+    if (!isMissingCorsConfiguration(error)) throw error;
+  }
+  const desired = storageCorsRule();
+  const existing = rules.find(rule => rule.ID === STORAGE_CORS_RULE_ID);
+  const unchanged = existing &&
+    sameValues(existing.AllowedOrigins, desired.AllowedOrigins) &&
+    sameValues(existing.AllowedMethods, desired.AllowedMethods) &&
+    sameValues(existing.AllowedHeaders, desired.AllowedHeaders) &&
+    sameValues(existing.ExposeHeaders, desired.ExposeHeaders) &&
+    existing.MaxAgeSeconds === desired.MaxAgeSeconds;
+  if (!unchanged) {
+    await s3.send(new PutBucketCorsCommand({
+      Bucket: env.S3_BUCKET,
+      CORSConfiguration: {
+        CORSRules: [...rules.filter(rule => rule.ID !== STORAGE_CORS_RULE_ID), desired]
+      }
+    }));
+  }
+  return { driver: 's3', required: true, configured: true, changed: !unchanged, origins: desired.AllowedOrigins } as const;
+}
 
 function storagePrefix() {
   return env.STORAGE_KEY_PREFIX.replace(/^\/+|\/+$/g, '') || 'users';

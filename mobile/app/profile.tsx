@@ -19,7 +19,7 @@ export default function Profile(){
     const x=await ImagePicker.launchImageLibraryAsync({mediaTypes:['images'],allowsEditing:kind==='profile',aspect:kind==='profile'?([1,1] as [number,number]):undefined,quality:.95});if(x.canceled)return;
     const asset=x.assets[0];
     if(kind==='logo'&&asset.mimeType&&!APP_CONFIG.assets.upload.preferredLogoTypes.some(t=>t===asset.mimeType!.toLowerCase()))return Alert.alert('Use PNG or JPEG for the company logo','PNG or JPEG gives the most reliable quality on invoices and report PDFs. Wide, tall and square logos are all supported.');
-    try{const up=await uploadAsset({uri:asset.uri,name:asset.fileName||`${kind}.jpg`,mimeType:asset.mimeType||'image/jpeg'});if(kind==='profile')setPic(up.url);else{setLogo(up.url);setLogoImageOk(true)}}catch(e:any){Alert.alert('Upload unavailable',e.message)}
+    try{const up=await uploadAsset({uri:asset.uri,name:asset.fileName||`${kind}.jpg`,mimeType:asset.mimeType||'image/jpeg',size:asset.fileSize,file:asset.file});if(kind==='profile')setPic(up.url);else{setLogo(up.url);setLogoImageOk(true)}}catch(e:any){Alert.alert('Upload unavailable',e.message)}
   }
   async function save(){
     if(!name.trim())return Alert.alert('Your name is required');if(!businessName.trim())return Alert.alert('Company name required','This name appears throughout your workspace and documents.');if(Number(vat)<0||Number(vat)>100)return Alert.alert('Check VAT rate','VAT percentage must be between 0 and 100.');

@@ -1,0 +1,11 @@
+1) the resend can send mail only to me but we donot want that . 
+2) the attachments are not working in the app . local for now as i tested although pictures are working and coming also when i closed the dockor desktop they are loading and etc so check it as the sir gave me the values were 
+
+
+3) design of tekbook logo and design of invoice will be made and will be implemented by html and etc then we will make it in. invoice design will be chnaged .  
+
+4) the text will be logo . 
+5) set new password has to ba a back button 
+6) 
+
+same issue coming that  it says the image or pdf is attached and shows woth proper name when i am testing on expo but when after adding invoice or payment i am not able to see it in my phone when i click it . also another issue in the application is that when we delete and invoice the next invoice starts skipping that invoice number as invoice 2 is deleted so the next created should be 2 not 3 and so on . also in the set new password section there should be a back button so user can go back and etc and back buttons and etc where needed add that . moreover the new signin page login page i mean where there is Tekbooks  and business book keeping written and there is a icon we will be using all that space to change it in the logo we will place that to be a image of logo we will add naming logo-big to place there . as i provided the refrence like that in the middle of the screen make it proper middle and etc see the image also same like that for owner logos they will also place like that so no need for that small box type fix all that changes bro . 

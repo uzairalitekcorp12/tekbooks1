@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import PDFDocument from 'pdfkit';
-import { Counter, Invoice, Party, mongoose } from '../models/index.js';
+import { Invoice, Party, mongoose } from '../models/index.js';
 import { requireAuth } from '../middleware/auth.js';
 import { idempotency } from '../middleware/security.js';
 import { REPORT_BRAND as B } from '../config/brand.js';
@@ -11,12 +11,14 @@ import { removeOwnedStoredFileIfUnreferenced } from '../services/storage-records
 import { attachmentInputSchema } from '../utils/attachments.js';
 import { invoicePaymentState, roundMoney, sumMoney } from '../utils/accounting.js';
 import { sendDownload } from '../utils/download.js';
+import { isInvoiceNumberConflict, nextAvailableInvoiceNumber } from '../services/invoice-number.js';
 
 const router = Router();
 router.use(requireAuth);
 router.use(idempotency);
 
 const MAX_BOOK_VALUE = 1_000_000_000_000;
+const MAX_INVOICE_NUMBER_ATTEMPTS = 32;
 const objectIdSchema = z.string().refine(value => mongoose.isObjectIdOrHexString(value), 'Invalid record identifier');
 const lineSchema = z.object({
   description: z.string().trim().min(1).max(500),
@@ -60,15 +62,6 @@ export function calculateInvoice(lines: z.infer<typeof lineSchema>[], discountPe
   const vatAmount = sumMoney(mapped.map(line => line.amount * discountRatio * line.vatPercent / 100));
   const total = roundMoney(taxableAfterDiscount + vatAmount);
   return { mapped, subtotal, discountPercent: normalizedDiscountPercent, discountAmount, vatAmount, total };
-}
-
-async function nextNumber(userId: unknown) {
-  const counter: any = await Counter.findOneAndUpdate(
-    { _id: `${String(userId)}:invoice` },
-    { $inc: { seq: 1 } },
-    { upsert: true, new: true, setDefaultsOnInsert: true }
-  );
-  return `INV-${String(counter.seq).padStart(5, '0')}`;
 }
 
 function money(value: unknown, currency = 'AED') {
@@ -361,9 +354,8 @@ router.post('/', async (req, res) => {
     method: parsed.data.openingPaymentMethod,
     notes: parsed.data.openingPaymentNotes || 'Opening payment'
   }] : [];
-  const invoice = await Invoice.create({
+  const invoiceData = {
     userId: req.user._id,
-    invoiceNumber: await nextNumber(req.user._id),
     customerId: customer._id,
     customerSnapshot: { name: customer.name, email: customer.email, phone: customer.phone, address: customer.address, trn: customer.trn },
     issueDate: parsed.data.issueDate,
@@ -378,7 +370,25 @@ router.post('/', async (req, res) => {
     payments,
     notes: parsed.data.notes,
     attachment
-  });
+  };
+  let invoice: any = null;
+  for (let attempt = 0; attempt < MAX_INVOICE_NUMBER_ATTEMPTS; attempt += 1) {
+    const invoiceNumber = await nextAvailableInvoiceNumber(req.user._id);
+    try {
+      invoice = await Invoice.create({ ...invoiceData, invoiceNumber });
+      break;
+    } catch (error) {
+      // Two concurrent requests can observe the same free number. The compound
+      // unique index lets one win; the other re-reads the gap and tries again.
+      if (!isInvoiceNumberConflict(error)) throw error;
+    }
+  }
+  if (!invoice) {
+    return res.status(409).json({
+      message: 'Another invoice is being created at the same time. Please try again.',
+      code: 'INVOICE_NUMBER_BUSY'
+    });
+  }
   res.status(201).json(responseInvoice(invoice, req.user._id));
 });
 

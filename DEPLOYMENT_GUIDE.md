@@ -236,7 +236,7 @@ After deployment, create a test workspace with an email you control and confirm:
 
 ## 5. Vercel backend
 
-The Vercel CLI is not currently installed on this machine. You can deploy from the dashboard without it, or install CLI version 47.0.5 or newer.
+You can deploy from the dashboard or run the current Vercel CLI through `npx`; a global CLI install is not required.
 
 ### Dashboard deployment
 
@@ -282,18 +282,12 @@ Production-safe defaults supply proxy/private storage, five-minute signed S3 URL
 From `backend`:
 
 ```powershell
-npm install --global vercel
-vercel login
-vercel link
-vercel env ls
-vercel deploy
-vercel deploy --prod
-```
-
-After linking, run the infrastructure test with the Vercel production environment:
-
-```powershell
-vercel env run --environment=production -- npm run production:check
+npx vercel login
+npx vercel whoami
+npx vercel link
+npx vercel env ls
+npx vercel env run -e production -- npm run production:check
+npx vercel --prod
 ```
 
 Do not run migrations or seed commands against Atlas until `vercel env ls` confirms that the project is linked to the intended account/project.
@@ -303,7 +297,7 @@ Do not run migrations or seed commands against Atlas until `vercel env ls` confi
 For the current MVP, run the approval script only from a trusted terminal with production environment variables:
 
 ```powershell
-vercel env run --environment=production -- npm run approve -- user@example.com
+npx vercel env run -e production -- npm run approve -- user@example.com
 ```
 
 Never put `ADMIN_API_KEY` in the APK. Before multiple staff members operate the product, replace this shared-key workflow with a staff login, role checks, and audit log.
@@ -324,28 +318,26 @@ npx eas-cli init
 
 `eas init` adds the EAS project ID to app configuration. Commit that non-secret project identifier.
 
-### Set the public API configuration
+### Check the public API configuration
 
-These values are embedded in the app and are intentionally public. Set them in both the `preview` and `production` EAS environments:
+These values are embedded in the app and are intentionally public. The tracked `mobile/eas.json` supplies them to both installed profiles, and `mobile/.env.example` supplies the same Vercel values for Expo Go:
 
-```powershell
-npx eas-cli env:set --name EXPO_PUBLIC_API_URL --value https://YOUR_PROJECT.vercel.app/api --environment preview --visibility plaintext
-npx eas-cli env:set --name EXPO_PUBLIC_AUTO_LAN --value false --environment preview --visibility plaintext
-npx eas-cli env:set --name EXPO_PUBLIC_PROXY_API_THROUGH_METRO --value false --environment preview --visibility plaintext
-npx eas-cli env:set --name EXPO_PUBLIC_API_URL --value https://YOUR_PROJECT.vercel.app/api --environment production --visibility plaintext
-npx eas-cli env:set --name EXPO_PUBLIC_AUTO_LAN --value false --environment production --visibility plaintext
-npx eas-cli env:set --name EXPO_PUBLIC_PROXY_API_THROUGH_METRO --value false --environment production --visibility plaintext
+```dotenv
+EXPO_PUBLIC_API_URL=https://tekbooks-khaki.vercel.app/api
+EXPO_PUBLIC_AUTO_LAN=false
+EXPO_PUBLIC_PROXY_API_THROUGH_METRO=false
 ```
 
 Do not place MongoDB, S3, Resend, JWT, or admin secrets in any `EXPO_PUBLIC_` variable.
 
-Verify the values before building:
+Verify the resolved build configuration before building:
 
 ```powershell
 Set-Location mobile
-npx eas-cli env:list --environment preview
-npx eas-cli env:list --environment production
+npx expo config --type public
 ```
+
+TekBooks 1.0.11 adds `expo-intent-launcher` for reliable attachment opening. Build and install a fresh APK; an EAS Update cannot add this native module to an older APK.
 
 ### Build an installable APK
 

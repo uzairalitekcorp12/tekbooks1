@@ -11,6 +11,7 @@ import {
   createPresignedUpload,
   isOwnedStorageKey,
   readStoredFile,
+  statStoredFile,
   storeFile,
   storedKey,
   usesS3Storage
@@ -46,12 +47,30 @@ r.post('/',requireAuth,uploadLimiter,(req,res,next)=>{
     try{if(!req.file)return res.status(400).json({message:'Attach a JPEG, PNG, WebP or PDF file'});const stored=await storeFile(req.file,req.user._id);res.status(201).json(stored)}catch(e){next(e)}
   });
 });
+r.get('/access',requireAuth,async(req,res)=>{
+  const value=String(req.query.key||req.query.url||'');
+  if(!value)return res.status(400).json({message:'An attachment storage reference is required.'});
+  if(!await isReferencedByUser(value,req.user._id))return res.status(403).json({message:'This attachment does not belong to the current workspace.'});
+  const name=safeName(req.query.name||storedKey(value).split('/').pop()||'attachment');
+  const file=await statStoredFile(value);
+  if(!file)return res.status(404).json({message:'Attachment file was not found in storage.'});
+  res.setHeader('Cache-Control','private, no-store');
+  if(!usesS3Storage())return res.json({direct:false,name,mimeType:file.contentType,size:file.size});
+  const url=await createPresignedDownloadUrl(file.key,name,true);
+  if(!url)return res.status(404).json({message:'Attachment file was not found in storage.'});
+  // The authenticated request ends here. Native clients download this short-lived
+  // URL without forwarding the TekBooks bearer token across the redirect to S3.
+  return res.json({direct:true,url,name,mimeType:file.contentType,size:file.size});
+});
 r.get('/content',requireAuth,async(req,res)=>{
   const value=String(req.query.key||req.query.url||'');
+  if(!value)return res.status(400).json({message:'An attachment storage reference is required.'});
   if(!await isReferencedByUser(value,req.user._id))return res.status(403).json({message:'This attachment does not belong to the current workspace.'});
   const name=safeName(req.query.name||storedKey(value).split('/').pop()||'attachment');
   if(usesS3Storage()){
-    const url=await createPresignedDownloadUrl(value,name,true);
+    const file=await statStoredFile(value);
+    if(!file)return res.status(404).json({message:'Attachment file was not found in storage.'});
+    const url=await createPresignedDownloadUrl(file.key,name,true);
     if(!url)return res.status(404).json({message:'Attachment file was not found in storage.'});
     res.setHeader('Cache-Control','private, no-store');
     return res.redirect(302,url);

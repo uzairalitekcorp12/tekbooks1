@@ -13,7 +13,7 @@ export function isExpoGo() {
 }
 
 async function loadNotifications() {
-  if (isExpoGo()) return null;
+  if (Platform.OS === 'web' || isExpoGo()) return null;
   return import('expo-notifications');
 }
 

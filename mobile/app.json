@@ -2,7 +2,7 @@
   "expo": {
     "name": "TekBooks",
     "slug": "tekbooks",
-    "version": "1.0.10",
+    "version": "1.0.11",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "tekbooks",
@@ -23,7 +23,7 @@
         "READ_MEDIA_IMAGES",
         "POST_NOTIFICATIONS"
       ],
-      "versionCode": 10
+      "versionCode": 11
     },
     "plugins": [
       "expo-router",

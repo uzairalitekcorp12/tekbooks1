@@ -1,5 +1,5 @@
 /**
- * TekBooks application configuration — v1.0.10.
+ * TekBooks application configuration — v1.0.11.
  *
  * This is the primary mobile source of truth for product identity, customer-facing
  * copy, theme colors, defaults, navigation labels, image presentation and lists.
@@ -12,7 +12,7 @@
  */
 export const APP_CONFIG = {
   name: 'TekBooks',
-  version: '1.0.10',
+  version: '1.0.11',
   shortMark: 'TB',
   tagline: 'Clarity for every business decision',
   poweredBy: 'Powered by TekBooks',
@@ -21,6 +21,9 @@ export const APP_CONFIG = {
   /** Product-owned image files. Replace the files at these paths to rebrand the build. */
   assetFiles: {
     tekbooksLogo: '../assets/brand/tekbooks-logo.png',
+    // Desired replacement path. Runtime safely uses the existing logo until
+    // this approved artwork is supplied and the matching require below changes.
+    logoBig: '../assets/brand/logo-big.png',
     appIcon: '../assets/icon.png',
     adaptiveIcon: '../assets/adaptive-icon.png',
     splash: '../assets/splash.png',
@@ -97,7 +100,7 @@ export const APP_CONFIG = {
 
   assets: {
     logo: { fit: 'contain' as const, backgroundPadding: 10, loginSize: 116, loginRadius: 28, compactSize: 54, profilePreviewHeight: 124 },
-    productLogo: { loginWidth: 250, loginHeight: 82, companyLoginWidth: 240, companyLoginHeight: 104, workspaceWidth: 190, workspaceHeight: 52 },
+    productLogo: { loginMaxWidth: 360, loginHeight: 132, companyLoginMaxWidth: 360, companyLoginHeight: 150, workspaceWidth: 190, workspaceHeight: 52 },
     avatar: { fit: 'cover' as const, profileSize: 82, compactSize: 44, radiusRatio: 0.34 },
     upload: {
       acceptedImages: ['image/jpeg','image/png','image/webp'],
@@ -151,6 +154,11 @@ export const APP_CONFIG = {
 export const APP_ASSETS = {
   tekbooksLogo: require('../assets/brand/tekbooks-logo.png'),
   tekbooksLogoDark: require('../assets/brand/tekbooks-logo-dark.png'),
+  // These aliases prevent Metro from failing before logo-big.png is delivered.
+  // When adding one final logo, point both aliases at logo-big.png so the same
+  // brand is used in light and dark mode.
+  logoBig: require('../assets/brand/tekbooks-logo.png'),
+  logoBigDark: require('../assets/brand/tekbooks-logo-dark.png'),
   appIcon: require('../assets/icon.png'),
 };
 

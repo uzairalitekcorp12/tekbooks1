@@ -1,9 +1,9 @@
 import Constants from 'expo-constants';
 import {fetch as expoFetch} from 'expo/fetch';
 import {File as ExpoFile} from 'expo-file-system';
-import * as SecureStore from 'expo-secure-store';
 import {Platform} from 'react-native';
 import {APP_CONFIG} from '@/config/app';
+import {getPrivateItem} from './private-storage';
 
 // This public URL is intentionally safe to embed in APK/AAB bundles. `npm run dev`
 // overrides it with the current LAN backend for a local full-stack session.
@@ -48,7 +48,7 @@ type ApiOptions=RequestInit&{timeoutMs?:number};
 // `undefined` means "not initialized yet"; null means "explicitly signed out".
 let runtimeAuthToken:string|null|undefined=undefined;
 export function setRuntimeAuthToken(token:string|null){runtimeAuthToken=token}
-export async function getAuthToken(){return runtimeAuthToken===undefined?await SecureStore.getItemAsync('tekbooks_token'):runtimeAuthToken}
+export async function getAuthToken(){return runtimeAuthToken===undefined?await getPrivateItem('tekbooks_token'):runtimeAuthToken}
 
 export class TekBooksApiError extends Error{status?:number;code?:string;body?:any;isNetwork?:boolean;constructor(message:string,extra:any={}){super(message);Object.assign(this,extra)}}
 function networkMessage(){return `${APP_CONFIG.name} cannot reach its API (${API_ORIGIN}). Check the configured API URL and your internet or local-network connection.`}

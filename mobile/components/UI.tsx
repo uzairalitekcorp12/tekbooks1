@@ -10,8 +10,8 @@ import {APP_CONFIG} from '@/config/app';
 export function AppBackground({children}:{children:React.ReactNode}){
   const{colors,resolved}=useTheme();
   return <LinearGradient colors={[colors.background,colors.gradientMid,colors.backgroundAlt] as any} style={{flex:1}}>
-    <View pointerEvents="none" style={[s.glow,s.glowOne,{backgroundColor:colors.glow}]}/>
-    <View pointerEvents="none" style={[s.glow,s.glowTwo,{backgroundColor:colors.glow,opacity:resolved==='dark'?.42:.28}]}/>
+    <View style={[s.glow,s.glowOne,{backgroundColor:colors.glow,pointerEvents:'none'}]}/>
+    <View style={[s.glow,s.glowTwo,{backgroundColor:colors.glow,opacity:resolved==='dark'?.42:.28,pointerEvents:'none'}]}/>
     <SafeAreaView edges={['left','right']} style={{flex:1}}>{children}</SafeAreaView>
   </LinearGradient>;
 }

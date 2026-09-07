@@ -12,7 +12,7 @@ try {
   const base = `http://127.0.0.1:${port}`;
   const health = await fetch(`${base}/health`);
   const healthBody: any = await health.json();
-  if (!health.ok || healthBody?.version !== '1.0.10') throw new Error(`Health route failed (HTTP ${health.status}).`);
+  if (!health.ok || healthBody?.version !== '1.0.11') throw new Error(`Health route failed (HTTP ${health.status}).`);
 
   const origin = 'http://localhost:8081';
   const preflight = await fetch(`${base}/api/uploads/presign`, {

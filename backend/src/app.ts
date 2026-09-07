@@ -113,7 +113,7 @@ app.get('/health', (_req, res) => {
   res.json({
     ok: true,
     service: 'tekbooks-api',
-    version: '1.0.10',
+    version: '1.0.11',
     environment: env.NODE_ENV,
     time: new Date().toISOString()
   });

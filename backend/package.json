@@ -1,6 +1,6 @@
 {
   "name": "tekbooks-backend",
-  "version": "1.0.10",
+  "version": "1.0.11",
   "private": true,
   "type": "module",
   "main": "src/index.ts",
@@ -22,6 +22,7 @@
     "storage:browser-check": "npm run compile --silent && node dist/scripts/storage-browser-check.js",
     "storage:setup": "tsx src/scripts/storage-setup.ts",
     "storage:cleanup": "tsx src/scripts/storage-cleanup.ts",
+    "invoice-number:check": "npm run compile --silent && node dist/scripts/invoice-number-check.js",
     "production:check": "npm run compile --silent && node dist/scripts/production-check.js",
     "system:check": "npm run compile --silent && node dist/scripts/system-check.js"
   },

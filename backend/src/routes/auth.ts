@@ -73,7 +73,7 @@ r.post('/login', async (req,res) => {
   if (!user.emailVerified) return res.status(403).json({ code:'EMAIL_NOT_VERIFIED', message:'Verify your email first' });
   if (user.approvalStatus !== 'APPROVED') return res.status(403).json({ code:'PENDING_APPROVAL', message:'Your workspace is pending approval', approvalStatus:user.approvalStatus });
 
-  if (env.NODE_ENV === 'production' && p.data.expoGo) return res.status(403).json({ code:'NATIVE_APP_REQUIRED', message:'For security, this account can only sign in from the installed TekBooks app.' });
+  if (env.NODE_ENV === 'production' && p.data.expoGo && !env.ALLOW_EXPO_GO_LOGIN) return res.status(403).json({ code:'NATIVE_APP_REQUIRED', message:'For security, this account can only sign in from the installed TekBooks app.' });
   const bypass = env.NODE_ENV !== 'production' && env.ALLOW_EXPO_GO_DEVICE_BYPASS && p.data.expoGo;
   if (!bypass) {
     if (!user.deviceId) {

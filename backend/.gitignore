@@ -7,3 +7,6 @@ uploads/*
 dist/
 *.log
 .vercel/
+
+.vercel
+.env*

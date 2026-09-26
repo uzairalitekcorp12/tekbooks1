@@ -21,6 +21,11 @@ const baseSchema = z.object({
     'MONGODB_URI must be a MongoDB connection string.'
   ).default('mongodb://127.0.0.1:27017/tekbooks'),
   MONGODB_DB_NAME: z.string().trim().regex(/^[a-zA-Z0-9_-]+$/).default('tekbooks'),
+  LOGIN_USERNAME: z.union([
+    z.literal(''),
+    z.string().trim().regex(/^[a-z0-9][a-z0-9._-]{1,31}@tekbooks$/)
+  ]).default(''),
+  LOGIN_USER_EMAIL: z.union([z.literal(''), z.string().trim().email()]).default(''),
   JWT_SECRET: z.string().min(16).default('dev-only-change-this-secret-please'),
   APP_BASE_URL: z.string().url().default('http://localhost:4000'),
   MOBILE_SCHEME: z.string().regex(/^[a-z][a-z0-9+.-]*$/i).default('tekbooks'),
@@ -64,6 +69,9 @@ const schema = baseSchema.superRefine((value, context) => {
 
   if (!!value.S3_ACCESS_KEY_ID !== !!value.S3_SECRET_ACCESS_KEY) {
     issue('S3_ACCESS_KEY_ID', 'S3_ACCESS_KEY_ID and S3_SECRET_ACCESS_KEY must be configured together.');
+  }
+  if (!!value.LOGIN_USERNAME !== !!value.LOGIN_USER_EMAIL) {
+    issue('LOGIN_USERNAME', 'LOGIN_USERNAME and LOGIN_USER_EMAIL must be configured together.');
   }
   if (value.STORAGE_DRIVER === 's3' && value.S3_ENDPOINT && !value.S3_ACCESS_KEY_ID) {
     issue('S3_ACCESS_KEY_ID', 'An S3-compatible custom endpoint requires explicit access credentials.');

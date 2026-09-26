@@ -18,11 +18,16 @@ const loginIdentifierSchema = z.string().trim().min(3).max(254).refine(value => 
   z.string().email().safeParse(value).success || tekBooksUsernamePattern.test(value.toLowerCase())
 ), 'Enter a valid email or TekBooks username');
 
-function findUserByLoginIdentifier(identifier: string) {
+async function findUserByLoginIdentifier(identifier: string) {
   const normalized = identifier.trim().toLowerCase();
-  return tekBooksUsernamePattern.test(normalized)
-    ? User.findOne({ username: normalized })
-    : User.findOne({ email: normalized });
+  if (!tekBooksUsernamePattern.test(normalized)) return User.findOne({ email: normalized });
+
+  const user = await User.findOne({ username: normalized });
+  if (user) return user;
+  if (normalized === env.LOGIN_USERNAME && env.LOGIN_USER_EMAIL) {
+    return User.findOne({ email: env.LOGIN_USER_EMAIL.toLowerCase() });
+  }
+  return null;
 }
 
 r.post('/signup', async (req, res) => {
@@ -56,13 +61,13 @@ r.post('/login', async (req,res) => {
   const p = z.object({ email:loginIdentifierSchema, password:z.string(), deviceId:z.string().min(1), deviceLabel:z.string().optional(), expoGo:z.boolean().optional() }).safeParse(req.body);
   if (!p.success) return res.status(400).json({ message:'Invalid login request' });
   const user = await findUserByLoginIdentifier(p.data.email);
-  if (!user) return res.status(401).json({ message:'Invalid email or password' });
+  if (!user) return res.status(401).json({ message:'Invalid username or password' });
   if (user.lockedUntil && user.lockedUntil > new Date()) return res.status(429).json({ message:'Account temporarily locked. Try later.' });
   if (!(await comparePassword(p.data.password,user.passwordHash))) {
     user.failedLoginCount += 1;
     if (user.failedLoginCount >= 8) user.lockedUntil = new Date(Date.now()+15*60*1000);
     await user.save();
-    return res.status(401).json({ message:'Invalid email or password' });
+    return res.status(401).json({ message:'Invalid username or password' });
   }
   user.failedLoginCount=0; user.lockedUntil=null;
   if (!user.emailVerified) return res.status(403).json({ code:'EMAIL_NOT_VERIFIED', message:'Verify your email first' });
@@ -122,7 +127,7 @@ r.post('/device/status', sensitiveLimiter, async (req,res) => {
 r.post('/forgot-password', sensitiveLimiter, async (req,res) => {
   const identifier=String(req.body?.email || ''); const user=await findUserByLoginIdentifier(identifier);
   if (user) await createOtp(user,'PASSWORD_RESET');
-  res.json({ message:'If that email exists, a reset code was sent.' });
+  res.json({ message:'If that account exists, a reset code was sent.' });
 });
 
 r.post('/reset-password', sensitiveLimiter, async (req,res) => {

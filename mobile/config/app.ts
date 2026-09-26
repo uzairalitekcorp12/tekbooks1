@@ -121,7 +121,7 @@ export const APP_CONFIG = {
     loginPowered: 'Secure book keeping, powered by TekBooks',
     loginSignInTitle: 'Welcome back',
     loginSignInSubtitle: 'Sign in to continue to your private business workspace.',
-    loginEmailLabel: 'Username or business email', loginPasswordLabel: 'Password', loginButton: 'Continue securely', loginForgot: 'Forgot password?',
+    loginEmailLabel: 'Username', loginPasswordLabel: 'Password', loginButton: 'Continue securely', loginForgot: 'Forgot password?',
     loginCreatePrompt: 'New business workspace?', loginCreateAction: 'Create account', loginSecurity: 'Private business access • Protected device sign-in',
     dashboardTitle: 'Business overview', dashboardPosition: 'Available business position',
     transactionsTitle: 'Money in & out', transactionsSubtitle: 'A clean, searchable record of every business movement',

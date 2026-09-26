@@ -7,7 +7,7 @@ import {getPrivateItem} from './private-storage';
 
 // This public URL is intentionally safe to embed in APK/AAB bundles. `npm run dev`
 // overrides it with the current LAN backend for a local full-stack session.
-export const DEFAULT_PUBLIC_API_URL='https://tekbooks-khaki.vercel.app/api';
+export const DEFAULT_PUBLIC_API_URL='https://tekbooks-apzv.vercel.app/api';
 const RAW_CONFIGURED_API=(process.env.EXPO_PUBLIC_API_URL||DEFAULT_PUBLIC_API_URL).trim().replace(/\/$/,'');
 function parsedUrl(url:string){try{return new URL(url)}catch{return null}}
 function hostOf(url:string){return parsedUrl(url)?.hostname||''}

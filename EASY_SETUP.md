@@ -350,6 +350,8 @@ Add these variables to Vercel Production one by one:
 | `APP_BASE_URL` | `https://YOUR-PROJECT-NAME.vercel.app` |
 | `MONGODB_URI` | completed Atlas connection string |
 | `MONGODB_DB_NAME` | `tekbooks` |
+| `LOGIN_USERNAME` | internal login, for example `admin@tekbooks` |
+| `LOGIN_NOTIFICATION_EMAIL` | real inbox for that login; in test mode use the Resend account email |
 | `JWT_SECRET` | first generated project secret |
 | `MEDIA_SIGNING_SECRET` | second generated project secret |
 | `ADMIN_API_KEY` | third generated project secret |

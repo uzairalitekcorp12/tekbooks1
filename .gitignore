@@ -24,3 +24,8 @@ backend/uploads/*
 *.pem
 .DS_Store
 Thumbs.db
+
+.vercel
+.env*
+!.env.example
+!**/.env.example

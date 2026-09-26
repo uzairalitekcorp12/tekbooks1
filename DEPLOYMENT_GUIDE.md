@@ -256,6 +256,8 @@ Required production variables:
 | `APP_BASE_URL` | `https://YOUR_PROJECT.vercel.app` or your API domain |
 | `MONGODB_URI` | secret Atlas SRV URI |
 | `MONGODB_DB_NAME` | `tekbooks` |
+| `LOGIN_USERNAME` | internal login such as `admin@tekbooks` |
+| `LOGIN_NOTIFICATION_EMAIL` | real inbox that receives OTP/reset/device mail for the internal login |
 | `JWT_SECRET` | unique random value, at least 32 characters |
 | `MEDIA_SIGNING_SECRET` | a second unique random value, at least 32 characters |
 | `ADMIN_API_KEY` | a third unique random value, at least 32 characters |
@@ -270,6 +272,8 @@ Required production variables:
 | `S3_SECRET_ACCESS_KEY` | dedicated IAM secret access key |
 
 Production-safe defaults supply proxy/private storage, five-minute signed S3 URLs, a 10 MB upload limit, disabled Expo Go bypass, no OTP terminal logging, no legacy media signatures, and no bucket auto-creation. Optional: `CORS_ORIGINS` for a future web client and `EXPO_PUSH_ACCESS_TOKEN` for authenticated Expo push requests.
+
+With Resend's free test sender, set `LOGIN_NOTIFICATION_EMAIL` and `RESEND_TEST_RECIPIENT` to the same Resend account inbox. The user still signs in with `LOGIN_USERNAME`; changing the delivery inbox does not require a database migration or APK rebuild.
 
 8. Deploy.
 9. Open:
@@ -323,7 +327,7 @@ npx eas-cli init
 These values are embedded in the app and are intentionally public. The tracked `mobile/eas.json` supplies them to both installed profiles, and `mobile/.env.example` supplies the same Vercel values for Expo Go:
 
 ```dotenv
-EXPO_PUBLIC_API_URL=https://tekbooks-khaki.vercel.app/api
+EXPO_PUBLIC_API_URL=https://tekbooks-apzv.vercel.app/api
 EXPO_PUBLIC_AUTO_LAN=false
 EXPO_PUBLIC_PROXY_API_THROUGH_METRO=false
 ```

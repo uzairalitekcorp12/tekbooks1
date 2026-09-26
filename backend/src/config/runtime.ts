@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import { connectDb } from './db.js';
 import { env } from './env.js';
 import { ensureStorageReady } from '../services/storage.js';
@@ -15,5 +16,10 @@ export async function ensureRuntimeReady() {
       throw error;
     });
   }
-  return runtimePromise;
+  await runtimePromise;
+
+  // A warm serverless function can outlive MongoDB's idle connection. The
+  // initialization promise remains resolved in that case, so explicitly
+  // restore the pool before allowing the request to continue.
+  if (mongoose.connection.readyState !== 1) await connectDb();
 }

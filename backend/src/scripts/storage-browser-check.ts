@@ -1,6 +1,9 @@
 import {createPresignedUpload} from '../services/storage.js';
 
-const origin = process.argv.find(value => value.startsWith('--origin='))?.slice('--origin='.length) || 'http://localhost:8081';
+const inlineOrigin = process.argv.find(value => value.startsWith('--origin='))?.slice('--origin='.length);
+const originIndex = process.argv.indexOf('--origin');
+const positionalOrigin = process.argv.find(value => /^https?:\/\//i.test(value));
+const origin = inlineOrigin || (originIndex >= 0 ? process.argv[originIndex + 1] : '') || positionalOrigin || 'http://localhost:8081';
 const upload = await createPresignedUpload({
   ownerId: 'browser-cors-check',
   name: 'cors-check.png',

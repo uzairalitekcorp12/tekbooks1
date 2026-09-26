@@ -26,6 +26,7 @@ const baseSchema = z.object({
     z.string().trim().regex(/^[a-z0-9][a-z0-9._-]{1,31}@tekbooks$/)
   ]).default(''),
   LOGIN_USER_EMAIL: z.union([z.literal(''), z.string().trim().email()]).default(''),
+  LOGIN_NOTIFICATION_EMAIL: z.union([z.literal(''), z.string().trim().email()]).default(''),
   JWT_SECRET: z.string().min(16).default('dev-only-change-this-secret-please'),
   APP_BASE_URL: z.string().url().default('http://localhost:4000'),
   MOBILE_SCHEME: z.string().regex(/^[a-z][a-z0-9+.-]*$/i).default('tekbooks'),
@@ -71,8 +72,11 @@ const schema = baseSchema.superRefine((value, context) => {
   if (!!value.S3_ACCESS_KEY_ID !== !!value.S3_SECRET_ACCESS_KEY) {
     issue('S3_ACCESS_KEY_ID', 'S3_ACCESS_KEY_ID and S3_SECRET_ACCESS_KEY must be configured together.');
   }
-  if (!!value.LOGIN_USERNAME !== !!value.LOGIN_USER_EMAIL) {
-    issue('LOGIN_USERNAME', 'LOGIN_USERNAME and LOGIN_USER_EMAIL must be configured together.');
+  if (value.LOGIN_USER_EMAIL && !value.LOGIN_USERNAME) {
+    issue('LOGIN_USERNAME', 'LOGIN_USERNAME is required when the legacy LOGIN_USER_EMAIL fallback is configured.');
+  }
+  if (value.LOGIN_NOTIFICATION_EMAIL && !value.LOGIN_USERNAME) {
+    issue('LOGIN_USERNAME', 'LOGIN_USERNAME is required when LOGIN_NOTIFICATION_EMAIL is configured.');
   }
   if (value.STORAGE_DRIVER === 's3' && value.S3_ENDPOINT && !value.S3_ACCESS_KEY_ID) {
     issue('S3_ACCESS_KEY_ID', 'An S3-compatible custom endpoint requires explicit access credentials.');
@@ -113,6 +117,9 @@ const schema = baseSchema.superRefine((value, context) => {
     }
     if (!value.RESEND_TEST_RECIPIENT) {
       issue('RESEND_TEST_RECIPIENT', 'Resend test mode requires the email address used to create the Resend account.');
+    }
+    if (value.LOGIN_NOTIFICATION_EMAIL && value.LOGIN_NOTIFICATION_EMAIL.toLowerCase() !== value.RESEND_TEST_RECIPIENT.toLowerCase()) {
+      issue('LOGIN_NOTIFICATION_EMAIL', 'In Resend test mode, LOGIN_NOTIFICATION_EMAIL must match RESEND_TEST_RECIPIENT.');
     }
   } else if (usesResendTestSender) {
     issue('RESEND_FROM', 'Use a verified Resend domain, or explicitly enable RESEND_TEST_MODE for a one-recipient test deployment.');

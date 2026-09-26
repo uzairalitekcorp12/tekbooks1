@@ -27,7 +27,7 @@ export default function Login(){
   },[]);
 
   async function submit(){
-    if(!email.trim()||!password)return Alert.alert('Enter your sign-in details','Your business email and password are required.');
+    if(!email.trim()||!password)return Alert.alert('Enter your sign-in details','Your username or business email and password are required.');
     setLoading(true);
     try{
       const device=await getDeviceIdentity();
@@ -56,7 +56,7 @@ export default function Login(){
             <Text style={[s.signTitle,typography.medium,{color:colors.text}]}>{APP_CONFIG.copy.loginSignInTitle}</Text>
             <Text style={[s.signSub,typography.regular,{color:colors.textMuted}]}>{APP_CONFIG.copy.loginSignInSubtitle}</Text>
           </View>
-          <Field label={APP_CONFIG.copy.loginEmailLabel} value={email} onChangeText={setEmail} autoCapitalize="none" autoCorrect={false} keyboardType="email-address" placeholder="name@company.com"/>
+          <Field label={APP_CONFIG.copy.loginEmailLabel} value={email} onChangeText={setEmail} autoCapitalize="none" autoCorrect={false} keyboardType="email-address" placeholder="admin@tekbooks or name@company.com"/>
           <PasswordField label={APP_CONFIG.copy.loginPasswordLabel} value={password} onChangeText={setPassword} placeholder="Enter your password" autoCapitalize="none"/>
           <Button title={APP_CONFIG.copy.loginButton} onPress={submit} loading={loading}/>
           <TouchableOpacity accessibilityRole="button" onPress={()=>router.push('/(auth)/forgot')} style={s.forgot}>

@@ -28,7 +28,7 @@ export default function Forgot(){
       <Text style={[s.h1,typography.medium,{color:colors.text}]}>Reset password</Text>
       <Text style={[s.p,typography.regular,{color:colors.textMuted}]}>We’ll send a one-time reset code to your registered email.</Text>
       <GlassCard style={s.card}>
-        <Field label="Email" value={email} onChangeText={setEmail} autoCapitalize="none" autoCorrect={false} keyboardType="email-address"/>
+        <Field label="Username or email" value={email} onChangeText={setEmail} autoCapitalize="none" autoCorrect={false} keyboardType="email-address"/>
         <Button title="Send reset code" onPress={go}/>
       </GlassCard>
     </ScrollView>

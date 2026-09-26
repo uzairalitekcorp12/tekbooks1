@@ -13,6 +13,18 @@ import { assertEmailRecipientAllowed } from '../services/email.js';
 const r = Router();
 r.use(authLimiter);
 
+const tekBooksUsernamePattern = /^[a-z0-9][a-z0-9._-]{1,31}@tekbooks$/;
+const loginIdentifierSchema = z.string().trim().min(3).max(254).refine(value => (
+  z.string().email().safeParse(value).success || tekBooksUsernamePattern.test(value.toLowerCase())
+), 'Enter a valid email or TekBooks username');
+
+function findUserByLoginIdentifier(identifier: string) {
+  const normalized = identifier.trim().toLowerCase();
+  return tekBooksUsernamePattern.test(normalized)
+    ? User.findOne({ username: normalized })
+    : User.findOne({ email: normalized });
+}
+
 r.post('/signup', async (req, res) => {
   const p = z.object({ name:z.string().min(2).max(80), email:z.string().email(), password:z.string().min(8).max(128), businessName:z.string().min(2).max(120) }).safeParse(req.body);
   if (!p.success) return res.status(400).json({ message:'Invalid signup details', issues:p.error.flatten() });
@@ -41,9 +53,9 @@ r.post('/resend-verification', sensitiveLimiter, async (req,res) => {
 });
 
 r.post('/login', async (req,res) => {
-  const p = z.object({ email:z.string().email(), password:z.string(), deviceId:z.string().min(1), deviceLabel:z.string().optional(), expoGo:z.boolean().optional() }).safeParse(req.body);
+  const p = z.object({ email:loginIdentifierSchema, password:z.string(), deviceId:z.string().min(1), deviceLabel:z.string().optional(), expoGo:z.boolean().optional() }).safeParse(req.body);
   if (!p.success) return res.status(400).json({ message:'Invalid login request' });
-  const user = await User.findOne({ email:p.data.email.toLowerCase() });
+  const user = await findUserByLoginIdentifier(p.data.email);
   if (!user) return res.status(401).json({ message:'Invalid email or password' });
   if (user.lockedUntil && user.lockedUntil > new Date()) return res.status(429).json({ message:'Account temporarily locked. Try later.' });
   if (!(await comparePassword(p.data.password,user.passwordHash))) {
@@ -73,10 +85,10 @@ r.post('/login', async (req,res) => {
 });
 
 r.post('/device/verify', sensitiveLimiter, async (req,res) => {
-  const p = z.object({ email:z.string().email(), code:z.string().length(6), deviceId:z.string().min(1), deviceLabel:z.string().optional() }).safeParse(req.body);
+  const p = z.object({ email:loginIdentifierSchema, code:z.string().length(6), deviceId:z.string().min(1), deviceLabel:z.string().optional() }).safeParse(req.body);
   if (!p.success) return res.status(400).json({ message:'Invalid request' });
-  const user = await User.findOne({ email:p.data.email.toLowerCase(), approvalStatus:'APPROVED' });
-  if (!user) return res.status(404).json({ message:'Account not found' });
+  const user = await findUserByLoginIdentifier(p.data.email);
+  if (user?.approvalStatus !== 'APPROVED') return res.status(404).json({ message:'Account not found' });
   const rec = await consumeOtp(user.email,'DEVICE_CHANGE',p.data.code);
   if (!rec || rec.metadata?.newDeviceId !== p.data.deviceId) return res.status(400).json({ message:'Invalid or expired device code' });
   user.deviceId=p.data.deviceId; user.deviceLabel=p.data.deviceLabel || rec.metadata?.newDeviceLabel || 'Android device'; user.lastLoginAt=new Date(); await user.save();
@@ -108,19 +120,20 @@ r.post('/device/status', sensitiveLimiter, async (req,res) => {
 });
 
 r.post('/forgot-password', sensitiveLimiter, async (req,res) => {
-  const email=String(req.body?.email || '').toLowerCase(); const user=await User.findOne({email});
+  const identifier=String(req.body?.email || ''); const user=await findUserByLoginIdentifier(identifier);
   if (user) await createOtp(user,'PASSWORD_RESET');
   res.json({ message:'If that email exists, a reset code was sent.' });
 });
 
 r.post('/reset-password', sensitiveLimiter, async (req,res) => {
-  const p=z.object({email:z.string().email(),code:z.string().length(6),password:z.string().min(8).max(128)}).safeParse(req.body);
+  const p=z.object({email:loginIdentifierSchema,code:z.string().length(6),password:z.string().min(8).max(128)}).safeParse(req.body);
   if(!p.success) return res.status(400).json({message:'Invalid reset request'});
-  const rec=await consumeOtp(p.data.email,'PASSWORD_RESET',p.data.code); if(!rec) return res.status(400).json({message:'Invalid or expired reset code'});
+  const user=await findUserByLoginIdentifier(p.data.email); if(!user) return res.status(400).json({message:'Invalid or expired reset code'});
+  const rec=await consumeOtp(user.email,'PASSWORD_RESET',p.data.code); if(!rec || String(rec.userId)!==String(user._id)) return res.status(400).json({message:'Invalid or expired reset code'});
   await User.findByIdAndUpdate(rec.userId,{passwordHash:await hashPassword(p.data.password),failedLoginCount:0,lockedUntil:null});
   res.json({message:'Password updated'});
 });
 
 function responseAssetUrl(value:any,ownerId:any){const refreshed=refreshedOwnedStorageUrl(value,ownerId);const legacy=String(value||'');return refreshed||(/^https:\/\//i.test(legacy)?legacy:'')}
-function safeUser(u:any){const business=u.business?.toObject?.()||u.business||{};return { id:String(u._id), name:u.name,email:u.email,profilePictureUrl:responseAssetUrl(u.profilePictureUrl,u._id),business:{...business,logoUrl:responseAssetUrl(business.logoUrl,u._id)},deviceLabel:u.deviceLabel,approvalStatus:u.approvalStatus }; }
+function safeUser(u:any){const business=u.business?.toObject?.()||u.business||{};return { id:String(u._id), name:u.name,email:u.email,username:u.username||'',profilePictureUrl:responseAssetUrl(u.profilePictureUrl,u._id),business:{...business,logoUrl:responseAssetUrl(business.logoUrl,u._id)},deviceLabel:u.deviceLabel,approvalStatus:u.approvalStatus }; }
 export default r;

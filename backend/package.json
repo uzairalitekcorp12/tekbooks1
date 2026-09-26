@@ -9,6 +9,7 @@
     "dev": "tsx watch src/index.ts",
     "typecheck": "tsc --noEmit",
     "approve": "tsx src/scripts/approve-user.ts",
+    "user:set-username": "tsx src/scripts/set-username.ts",
     "cf:dev": "npx wrangler dev",
     "cf:deploy": "npx wrangler deploy",
     "cf:types": "npx wrangler types",

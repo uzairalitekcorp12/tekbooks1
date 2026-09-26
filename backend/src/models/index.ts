@@ -21,6 +21,14 @@ const businessSchema = new Schema({
 const UserSchema = new Schema({
   name: { type: String, required: true },
   email: { type: String, unique: true, lowercase: true, index: true, required: true },
+  username: {
+    type: String,
+    unique: true,
+    sparse: true,
+    lowercase: true,
+    trim: true,
+    match: /^[a-z0-9][a-z0-9._-]{1,31}@tekbooks$/
+  },
   passwordHash: { type: String, required: true },
   emailVerified: { type: Boolean, default: false },
   approvalStatus: { type: String, enum: ['PENDING','APPROVED','REJECTED'], default: 'PENDING', index: true },

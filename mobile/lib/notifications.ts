@@ -31,10 +31,14 @@ export async function setupNotificationHandling(onUrl: (url: string) => void) {
       }),
     });
 
-    const subscription = Notifications.addNotificationResponseReceivedListener(response => {
+    const handleResponse=(response:any)=>{
       const url = (response.notification.request.content.data as any)?.url;
       if (typeof url === 'string' && url) onUrl(url);
-    });
+    };
+    const subscription = Notifications.addNotificationResponseReceivedListener(handleResponse);
+    // A notification tap can launch a closed app before the listener is attached.
+    const last=await Notifications.getLastNotificationResponseAsync();
+    if(last){handleResponse(last);await Notifications.clearLastNotificationResponseAsync()}
 
     return () => subscription.remove();
   } catch (error) {

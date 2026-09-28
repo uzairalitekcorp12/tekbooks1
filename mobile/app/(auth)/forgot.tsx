@@ -9,16 +9,19 @@ import {typography,useTheme} from '@/lib/theme';
 
 export default function Forgot(){
   const[email,setEmail]=useState('');
+  const[loading,setLoading]=useState(false);
   const{colors}=useTheme();
   const page=useResponsivePage(false);
 
   async function go(){
+    if(loading)return;
+    setLoading(true);
     try{
       await api('/auth/forgot-password',{method:'POST',body:JSON.stringify({email})});
       router.push({pathname:'/(auth)/reset',params:{email}});
     }catch(e:any){
       Alert.alert('Error',e.message);
-    }
+    }finally{setLoading(false)}
   }
 
   return <AppBackground>
@@ -29,7 +32,7 @@ export default function Forgot(){
       <Text style={[s.p,typography.regular,{color:colors.textMuted}]}>We’ll send a one-time reset code to your registered email.</Text>
       <GlassCard style={s.card}>
         <Field label="Username" value={email} onChangeText={setEmail} autoCapitalize="none" autoCorrect={false} placeholder="admin@tekbooks"/>
-        <Button title="Send reset code" onPress={go}/>
+        <Button title="Send reset code" onPress={go} loading={loading} loadingTitle="Sending reset code…"/>
       </GlassCard>
     </ScrollView>
   </AppBackground>;

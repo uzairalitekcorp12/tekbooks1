@@ -31,7 +31,7 @@ const baseSchema = z.object({
   APP_BASE_URL: z.string().url().default('http://localhost:4000'),
   MOBILE_SCHEME: z.string().regex(/^[a-z][a-z0-9+.-]*$/i).default('tekbooks'),
   CORS_ORIGINS: z.string().default(''),
-  ALLOW_EXPO_GO_DEVICE_BYPASS: booleanValue(!productionDefaults),
+  ALLOW_EXPO_GO_DEVICE_BYPASS: booleanValue(false),
   ALLOW_EXPO_GO_LOGIN: booleanValue(false),
   ADMIN_API_KEY: z.string().min(8).default('dev-admin-key'),
   RESEND_API_KEY: z.string().default(''),

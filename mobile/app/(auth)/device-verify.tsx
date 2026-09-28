@@ -1,63 +1,61 @@
-import {useState} from 'react';
-import {Alert,ScrollView,StyleSheet,Text} from 'react-native';
-import {router,useLocalSearchParams} from 'expo-router';
+import {useCallback,useRef,useState} from 'react';
+import {Alert,AppState,ScrollView,StyleSheet,Text,View} from 'react-native';
+import {router,useFocusEffect,useLocalSearchParams} from 'expo-router';
 import {AuthBackButton} from '@/components/Auth';
-import {AppBackground,Button,Field,GlassCard,useResponsivePage} from '@/components/UI';
+import {AppBackground,Button,Field,GlassCard,Notice,useResponsivePage} from '@/components/UI';
 import {api} from '@/lib/api';
 import {getDeviceIdentity} from '@/lib/device';
 import {useSession} from '@/lib/session';
 import {typography,useTheme} from '@/lib/theme';
 
 export default function DeviceVerify(){
-  const p=useLocalSearchParams<{email:string;challengeId?:string;challengeSecret?:string}>();
-  const[code,setCode]=useState('');
-  const{signIn}=useSession();
-  const{colors}=useTheme();
-  const page=useResponsivePage(false);
-
+  const p=useLocalSearchParams<{email:string;challengeId?:string;challengeSecret?:string;emailSent?:string;expiresAt?:string}>();
+  const[code,setCode]=useState(''),[busy,setBusy]=useState<''|'verify'|'check'>(''),[status,setStatus]=useState('Waiting for approval on your registered phone.'),[error,setError]=useState('');
+  const working=useRef(false),active=useRef(false),stopped=useRef(false);
+  const{signIn}=useSession();const{colors}=useTheme();const page=useResponsivePage(false);
   async function go(){
+    if(working.current)return;
+    if(!/^\d{6}$/.test(code))return Alert.alert('Enter the email code','Use the six-digit code sent to your registered inbox.');
+    working.current=true;setBusy('verify');
     try{
       const device=await getDeviceIdentity();
       const d=await api('/auth/device/verify',{method:'POST',body:JSON.stringify({email:p.email,code,...device})});
-      await signIn(d.token,d.user);
-      router.replace('/(tabs)');
-    }catch(e:any){
-      Alert.alert('Device verification failed',e.message);
-    }
+      if(active.current){stopped.current=true;await signIn(d.token,d.user);router.replace('/(tabs)')}
+    }catch(e:any){if(active.current)setError(e.message)}
+    finally{working.current=false;if(active.current)setBusy('')}
   }
-
-  async function checkCurrent(){
+  const check=useCallback(async(automatic=false)=>{
+    if(working.current||stopped.current||!p.challengeId||!p.challengeSecret)return;
+    working.current=true;if(!automatic)setBusy('check');
     try{
       const device=await getDeviceIdentity();
-      const d=await api('/auth/device/status',{method:'POST',body:JSON.stringify({challengeId:p.challengeId,challengeSecret:p.challengeSecret,...device})});
-      if(d.approved){
-        await signIn(d.token,d.user);
-        router.replace('/(tabs)');
-      }else{
-        Alert.alert('Waiting',d.message);
-      }
-    }catch(e:any){
-      Alert.alert('Approval check',e.message);
-    }
-  }
-
-  return <AppBackground>
-    <ScrollView contentContainerStyle={[s.wrap,page]} keyboardShouldPersistTaps="handled">
-      <AuthBackButton label="Cancel sign in"/>
-      <Text style={[s.h1,typography.medium,{color:colors.text}]}>New device detected</Text>
-      <Text style={[s.p,typography.regular,{color:colors.textMuted}]}>This account is already bound to another Android device. Enter the email code or approve the request from the current phone.</Text>
-      <GlassCard style={s.card}>
-        <Field label="Device approval code" value={code} onChangeText={setCode} keyboardType="number-pad" maxLength={6}/>
-        <Button title="Continue with email code" onPress={go}/>
-        {p.challengeId?<Button secondary title="Check approval from current phone" onPress={checkCurrent}/>:null}
-      </GlassCard>
-    </ScrollView>
-  </AppBackground>;
+      const d=await api('/auth/device/status',{method:'POST',body:JSON.stringify({challengeId:p.challengeId,challengeSecret:p.challengeSecret,...device}),activityLabel:automatic?false:'Checking device approval…'});
+      if(!active.current)return;
+      setError('');
+      if(d.approved){stopped.current=true;setStatus('Approved. Opening your workspace…');await signIn(d.token,d.user);router.replace('/(tabs)')}
+      else setStatus(d.message||'Still waiting for approval on your registered phone.');
+    }catch(e:any){if(active.current){setError(e.message);if(e.status===400||e.status===404)stopped.current=true}}
+    finally{working.current=false;if(active.current)setBusy('')}
+  },[p.challengeId,p.challengeSecret,signIn]);
+  const latestCheck=useRef(check);latestCheck.current=check;
+  useFocusEffect(useCallback(()=>{
+    active.current=true;stopped.current=false;void latestCheck.current(true);
+    const timer=setInterval(()=>{if(AppState.currentState==='active')void latestCheck.current(true)},15000);
+    const listener=AppState.addEventListener('change',state=>{if(state==='active')void latestCheck.current(true)});
+    return()=>{active.current=false;clearInterval(timer);listener.remove()};
+  },[]));
+  return <AppBackground><ScrollView contentContainerStyle={[s.wrap,page]} keyboardShouldPersistTaps="handled">
+    <AuthBackButton label="Cancel sign in"/>
+    <Text style={[s.h1,typography.medium,{color:colors.text}]}>Approve your new device</Text>
+    <Text style={[s.p,typography.regular,{color:colors.textMuted}]}>Open Workspace → Device requests on your registered phone and approve this login, or enter the code from your registered email.</Text>
+    <View style={{marginVertical:16}}><Notice title={error?'Approval check unavailable':'Waiting for device approval'} body={error||status} tone={error?'warning':'info'}/></View>
+    {p.emailSent==='false'?<View style={{marginBottom:16}}><Notice tone="warning" title="Email code could not be sent" body="You can still approve this request in Device requests on your registered phone. To request another email code, return to sign in and try again."/></View>:null}
+    <GlassCard style={s.card}>
+      <Field label="Email approval code" value={code} onChangeText={setCode} keyboardType="number-pad" maxLength={6} helper={p.emailSent==='true'?'A code was sent to your registered inbox. Check spam too.':'Enter the code if you received one.'}/>
+      <Button title="Continue with email code" onPress={go} loading={busy==='verify'} loadingTitle="Verifying device…" disabled={!!busy}/>
+      {p.challengeId?<Button secondary title="Check approval now" onPress={()=>void check()} loading={busy==='check'} loadingTitle="Checking approval…" disabled={!!busy}/>:null}
+      <Text style={[s.hint,typography.regular,{color:colors.textMuted}]}>Approval is checked automatically every 15 seconds. Requests expire after 10 minutes. This replaces the registered device.</Text>
+    </GlassCard>
+  </ScrollView></AppBackground>;
 }
-
-const s=StyleSheet.create({
-  wrap:{padding:24,paddingBottom:40},
-  h1:{fontSize:32,marginTop:34},
-  p:{lineHeight:21,marginTop:10},
-  card:{gap:14,marginTop:24},
-});
+const s=StyleSheet.create({wrap:{padding:24,paddingBottom:40},h1:{fontSize:28,marginTop:28},p:{fontSize:13,lineHeight:21,marginTop:12},card:{gap:14},hint:{fontSize:11,lineHeight:17}});

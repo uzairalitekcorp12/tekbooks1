@@ -14,15 +14,24 @@ export async function createOtp(user: any, purpose: 'SIGNUP'|'PASSWORD_RESET'|'D
   const code = crypto.randomInt(100000, 999999).toString();
   const codeHash = await bcrypt.hash(code, 10);
   const rec = await VerificationToken.create({ userId: user._id, email: user.email, purpose, codeHash, metadata, expiresAt: new Date(Date.now()+10*60*1000) });
-  await sendCodeEmail(user.email, code, purpose);
+  try{
+    const sent=await sendCodeEmail(user.email, code, purpose);
+    if(purpose==='DEVICE_CHANGE'){rec.metadata={...metadata,emailSent:!!sent};rec.markModified('metadata');await rec.save()}
+  }catch(error){
+    if(purpose!=='DEVICE_CHANGE')throw error;
+    // Keep approval on the registered phone available when email delivery fails.
+    console.warn('Device verification email could not be delivered');
+    rec.metadata={...metadata,emailSent:false};rec.markModified('metadata');await rec.save();
+  }
   return rec;
 }
-export async function consumeOtp(email: string, purpose: string, code: string) {
-  const rec = await VerificationToken.findOne({ email: email.toLowerCase(), purpose, consumedAt: { $exists: false }, expiresAt: { $gt: new Date() } }).sort({ createdAt: -1 });
+export async function consumeOtp(email: string, purpose: string, code: string, match:Record<string,unknown>={}) {
+  const query={...match,email:email.toLowerCase(),purpose,consumedAt:{$exists:false},expiresAt:{$gt:new Date()},attempts:{$lt:5}};
+  const rec = await VerificationToken.findOne(query).sort({ createdAt: -1 });
   if (!rec) return null;
   if (rec.attempts >= 5) return null;
   const ok = await bcrypt.compare(code, rec.codeHash);
-  if (!ok) { rec.attempts += 1; await rec.save(); return null; }
-  rec.consumedAt = new Date(); await rec.save();
-  return rec;
+  if (!ok) { await VerificationToken.updateOne({...query,_id:rec._id},{$inc:{attempts:1}});return null; }
+  // A successful code can be claimed once, even when two requests arrive together.
+  return VerificationToken.findOneAndUpdate({...query,_id:rec._id},{$set:{consumedAt:new Date()}},{new:true});
 }

@@ -1,16 +1,19 @@
 import { Resend } from 'resend';
 import { env } from '../config/env.js';
+import {codeEmailContent,emailTemplate} from './email-template.js';
 
 const resend = env.RESEND_API_KEY ? new Resend(env.RESEND_API_KEY) : null;
-const shell = (title: string, body: string) => `<div style="background:#F9FFFE;padding:32px 18px;font-family:Arial,sans-serif;color:#000E11"><div style="max-width:520px;margin:auto;background:#fff;border:1px solid #DCEAE8;border-radius:20px;padding:28px"><div style="font-size:22px;font-weight:700;color:#10C8A9">TekBooks</div><div style="font-size:11px;color:#52696C;margin-top:3px">Business book keeping, beautifully clear</div><h2 style="font-size:22px;margin:28px 0 10px">${title}</h2>${body}<div style="border-top:1px solid #DCEAE8;margin-top:28px;padding-top:16px;color:#789093;font-size:11px">Powered by TekBooks</div></div></div>`;
 
 /** Keep the internal TekBooks login separate from its deliverable inbox. */
 export function resolveEmailRecipient(email: string) {
   const normalized = email.trim().toLowerCase();
-  if (env.LOGIN_USERNAME && normalized === env.LOGIN_USERNAME.toLowerCase() && env.LOGIN_NOTIFICATION_EMAIL) {
+  if (env.LOGIN_NOTIFICATION_EMAIL && (
+    normalized===env.LOGIN_USERNAME.toLowerCase() ||
+    (env.LOGIN_USER_EMAIL&&normalized===env.LOGIN_USER_EMAIL.toLowerCase())
+  )) {
     return env.LOGIN_NOTIFICATION_EMAIL;
   }
-  return email;
+  return normalized;
 }
 
 /** Resend's shared testing sender can deliver only to the Resend account email. */
@@ -23,7 +26,7 @@ export function assertEmailRecipientAllowed(email: string) {
   throw failure;
 }
 
-async function send(message: { to: string; subject: string; html: string }) {
+async function send(message: { to: string; subject: string; html: string; text:string }) {
   if (!resend) return null;
   const to = resolveEmailRecipient(message.to);
   assertEmailRecipientAllowed(to);
@@ -49,10 +52,12 @@ export async function sendCodeEmail(email: string, code: string, purpose: string
     }
     return null;
   }
+  const content=codeEmailContent(code,purpose);
   return send({
     to: email,
     subject: `TekBooks - ${title}`,
-    html: shell(title, `<p style="color:#52696C;line-height:1.6">Use the secure code below to continue.</p><div style="font-size:30px;font-weight:700;letter-spacing:8px;padding:17px;background:#F2FBF9;border:1px solid rgba(16,200,169,.2);border-radius:14px;text-align:center;color:#000E11">${code}</div><p style="color:#789093;font-size:12px;line-height:1.5">This code expires in 10 minutes. If you did not request it, you can ignore this email.</p>`)
+    html:emailTemplate(title,content.html,'Your TekBooks verification code expires in 10 minutes.'),
+    text:`TekBooks — ${title}\n\n${content.text}`,
   });
 }
 
@@ -64,10 +69,13 @@ export async function sendApprovalEmail(email: string, approved: boolean) {
   return send({
     to: email,
     subject: `TekBooks workspace ${approved ? 'approved' : 'update'}`,
-    html: shell(
+    html: emailTemplate(
       approved ? 'Your workspace is ready' : 'Workspace access update',
-      `<p style="color:#52696C;line-height:1.6">Your TekBooks workspace has been <strong>${approved ? 'approved' : 'not approved'}</strong>. ${approved ? 'You can now sign in securely from your approved phone.' : 'Please contact support if you believe this needs review.'}</p>`
-    )
+      `<p style="font-size:14px;color:#536c66;line-height:24px">Your TekBooks workspace has been <strong>${approved ? 'approved' : 'not approved'}</strong>. ${approved ? 'Open TekBooks and sign in to start managing your business.' : 'Please contact support if you believe this needs review.'}</p><p style="padding:18px;background:#f0faf6;border:1px solid #cce9de;border-radius:12px;font-size:13px;line-height:22px;color:#245c4e">${approved?'Your invoices, contacts, transactions and reports are ready in your workspace.':'Your workspace access requires a review before you can continue.'}</p>`,
+      approved?'Your TekBooks workspace is approved and ready.':'An update on your TekBooks workspace.',
+      'WORKSPACE UPDATE'
+    ),
+    text:`Your TekBooks workspace has been ${approved?'approved. Open the app and sign in.':'not approved. Please contact support if you believe this needs review.'}`,
   });
 }
 
@@ -76,6 +84,7 @@ export async function sendSystemTestEmail(email: string) {
   return send({
     to: email,
     subject: 'TekBooks setup test',
-    html: shell('Your email setup works', '<p style="color:#52696C;line-height:1.6">TekBooks successfully connected to Resend. Signup, password-reset, device-change, and approval messages use this same delivery service.</p>')
+    html:emailTemplate('Your email setup works','<p style="font-size:14px;color:#536c66;line-height:24px">TekBooks successfully connected to Resend and routed this message to your configured inbox.</p><p style="padding:18px;background:#f0faf6;border:1px solid #cce9de;border-radius:12px;font-size:13px;line-height:22px;color:#245c4e">Signup verification, password resets, device approvals and workspace updates all use this delivery service.</p>','Your TekBooks email connection and inbox routing are ready.','CONNECTION CONFIRMED'),
+    text:'TekBooks successfully connected to Resend and routed this message to your configured inbox. Signup, password-reset, device-change and approval messages use this delivery service.',
   });
 }

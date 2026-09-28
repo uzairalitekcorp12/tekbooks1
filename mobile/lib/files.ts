@@ -3,6 +3,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as IntentLauncher from 'expo-intent-launcher';
 import * as Sharing from 'expo-sharing';
 import {API_URL,API_ORIGIN,api,getAuthToken,TekBooksApiError,absoluteAssetUrl} from './api';
+import {beginActivity} from './activity';
 
 function safeName(name:string,fallback='tekbooks-file'){
   const cleaned=String(name||fallback).replace(/[\\/:*?"<>|]+/g,'-').replace(/\s+/g,' ').trim();
@@ -49,6 +50,10 @@ async function downloadToDevice(url:string,fileName:string,headers:Record<string
   return result.uri;
 }
 export async function downloadProtectedFile(path:string,fileName:string,downloadOnWeb=true){
+  const activity=beginActivity(path.startsWith('/reports/')?'Preparing and downloading report…':`Fetching ${fileName}…`,2);
+  try{return await downloadProtectedFileOnce(path,fileName,downloadOnWeb)}finally{activity.end()}
+}
+async function downloadProtectedFileOnce(path:string,fileName:string,downloadOnWeb=true){
   const token=await getAuthToken();if(!token)throw new TekBooksApiError('Authentication required. Sign in again and retry.',{status:401});
   if(Platform.OS==='web'){
     try{return await browserFile(`${API_URL}${path}`,fileName,{Accept:'*/*',Authorization:`Bearer ${token}`},downloadOnWeb)}catch(e:any){if(e instanceof TekBooksApiError)throw e;throw new TekBooksApiError(`Cannot reach the file service (${API_ORIGIN}). ${e?.message||'Check the API connection and try again.'}`,{isNetwork:true})}
@@ -56,6 +61,10 @@ export async function downloadProtectedFile(path:string,fileName:string,download
   return downloadToDevice(`${API_URL}${path}`,fileName,{Accept:'*/*',Authorization:`Bearer ${token}`});
 }
 export async function downloadStoredAttachment(asset:any){
+  const activity=beginActivity(`Fetching ${asset?.name||'attachment'}…`,2);
+  try{return await downloadStoredAttachmentOnce(asset)}finally{activity.end()}
+}
+async function downloadStoredAttachmentOnce(asset:any){
   if(!asset)throw new Error('Attachment is unavailable.');
   const name=safeName(asset.name||`attachment${extensionFromMime(asset.mimeType)}`);
   const raw=String(asset.url||'');
@@ -63,9 +72,9 @@ export async function downloadStoredAttachment(asset:any){
   try{
     if(reference){
       const contentPath=`/uploads/content?${reference}&name=${encodeURIComponent(name)}`;
-      if(Platform.OS==='web')return await downloadProtectedFile(contentPath,name,false);
+      if(Platform.OS==='web')return await downloadProtectedFileOnce(contentPath,name,false);
       try{
-        const access=await api(`/uploads/access?${reference}&name=${encodeURIComponent(name)}`);
+        const access=await api(`/uploads/access?${reference}&name=${encodeURIComponent(name)}`,{activityLabel:false});
         if(access?.direct){
           const directUrl=String(access.url||'');
           if(!/^https?:\/\//i.test(directUrl))throw new TekBooksApiError('The attachment service returned an invalid download address.');
@@ -77,7 +86,7 @@ export async function downloadStoredAttachment(asset:any){
         // errors must remain visible rather than being bypassed.
         if(e?.status!==404)throw e;
       }
-      return await downloadProtectedFile(contentPath,name,false);
+      return await downloadProtectedFileOnce(contentPath,name,false);
     }
   }catch(e:any){
     // Only legacy development URLs fall back to direct access. Current owner-scoped

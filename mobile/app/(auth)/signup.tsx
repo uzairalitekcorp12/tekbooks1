@@ -41,7 +41,7 @@ export default function Signup(){
         <Field label="Company name" value={businessName} onChangeText={setBusiness}/>
         <Field label="Business email" value={email} onChangeText={setEmail} autoCapitalize="none" autoCorrect={false} keyboardType="email-address"/>
         <PasswordField label="Password" helper="Minimum 8 characters" value={password} onChangeText={setPassword} autoCapitalize="none"/>
-        <Button title="Create workspace" onPress={go} loading={loading}/>
+        <Button title="Create workspace" onPress={go} loading={loading} loadingTitle="Creating workspace…"/>
       </GlassCard>
     </ScrollView>
   </AppBackground>;

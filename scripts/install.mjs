@@ -56,16 +56,5 @@ typecheck('backend');
 typecheck('mobile');
 
 console.log('\nTekBooks setup completed successfully.');
-const docker = spawnSync('docker', ['--version'], {
-  cwd: root,
-  encoding: 'utf8',
-  windowsHide: true,
-  shell: isWindows,
-  env: cleanNpmEnv(),
-});
-if (docker.status === 0) {
-  console.log('Next: start Docker Desktop, then run `npm run db:start`.');
-} else {
-  console.warn('Docker was not detected. Install/start Docker Desktop, start a native MongoDB service, or configure a MongoDB Atlas URI in backend/.env.');
-}
-console.log('Then: npm run dev');
+console.log('Next: configure backend/.env with your MongoDB, storage and Resend settings.');
+console.log('Run npm run db:check, then npm run dev.');

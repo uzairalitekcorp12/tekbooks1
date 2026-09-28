@@ -1,5 +1,5 @@
 import React, {createContext, useContext, useEffect, useMemo, useState} from 'react';
-import {TextStyle, useColorScheme} from 'react-native';
+import {Platform,TextStyle, useColorScheme} from 'react-native';
 import Constants from 'expo-constants';
 import {isRunningInExpoGo} from 'expo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -40,9 +40,10 @@ export const useTheme=()=>useContext(ThemeContext);
 const t=APP_CONFIG.typography;
 // Lufga is embedded only when the licensed files exist at build time. Expo Go
 // intentionally uses the platform fallback because native config plugins are not applied there.
-const hasEmbeddedLufga=Boolean((Constants.expoConfig?.extra as any)?.hasEmbeddedLufga)&&!isRunningInExpoGo();
-const regularFamily=hasEmbeddedLufga?'Lufga':t.regularFamily;
-const mediumFamily=hasEmbeddedLufga?'Lufga':t.mediumFamily;
+const hasEmbeddedLufga=Platform.OS!=='web'&&Boolean((Constants.expoConfig?.extra as any)?.hasEmbeddedLufga)&&!isRunningInExpoGo();
+const webFamily="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+const regularFamily=hasEmbeddedLufga?'Lufga':t.regularFamily||(Platform.OS==='web'?webFamily:undefined);
+const mediumFamily=hasEmbeddedLufga?'Lufga':t.mediumFamily||(Platform.OS==='web'?webFamily:undefined);
 export const typography={
   regular:{fontFamily:regularFamily,fontWeight:t.regularWeight} as TextStyle,
   medium:{fontFamily:mediumFamily,fontWeight:t.mediumWeight} as TextStyle,

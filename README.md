@@ -1,35 +1,30 @@
 # TekBooks
 
-TekBooks is an Expo Android bookkeeping app with an Express/MongoDB backend.
+Expo bookkeeping app with an Express/MongoDB API, private S3 attachments and Resend emails.
 
-- Local development: MongoDB in Docker and local attachment storage.
-- Production: Vercel Express Function, MongoDB Atlas, private Amazon S3, and Resend.
-- Android: EAS `preview` builds an installable APK; `production` builds a Play Store AAB.
-
-Without a custom email domain, Vercel can run in explicit Resend test mode. All app features work, but Resend email delivery and email signup are limited to the Resend account address until a domain is verified.
-
-## Quick start
+## Run locally
 
 ```powershell
 npm run setup
 npm run configure:local
-npm run system:check -- --email=YOUR_RESEND_TEST_EMAIL
+npm run db:check
 npm run dev
 ```
 
-This recommended path uses Atlas, private S3, and Resend locally. Docker plus `npm run db:start` remains an optional local-MongoDB fallback.
+Use `backend/.env` for MongoDB, storage and Resend credentials. `mobile/.env` contains the public API URL. Development starts the API and Expo together and updates the phone's LAN address automatically. Use `npm run dev:tunnel` when a LAN connection is unavailable.
 
-Useful checks:
+## Verify
 
 ```powershell
-npm run typecheck
-npm run db:check
-npm --prefix backend run config:check
 npm run verify
+npm run test:features
+npm --prefix backend run email:check
 ```
 
-`ECONNREFUSED 127.0.0.1:27017` means the local MongoDB service is not running; it is unrelated to the phone's Wi-Fi address. Start Docker Desktop before `npm run db:start`, start a separately installed MongoDB service, or put a MongoDB Atlas URI in `backend/.env`.
+The feature checks use isolated sample records and mocked delivery to verify loading states, request sharing, device approval, email verification, password resets and PDF/Excel exports. The email check sends a real test email to the configured inbox. `npm run system:check` also checks connected database/storage services.
 
-Local Expo development follows the active Wi-Fi address when `npm run dev` starts. An installed preview/production APK must instead contain a stable public HTTPS backend URL, so it works on any Wi-Fi or mobile data without the development PC.
+Set `LOGIN_NOTIFICATION_EMAIL` to the inbox for your configured `LOGIN_USERNAME` / `LOGIN_USER_EMAIL`. Resend's testing sender delivers only to the Resend account inbox; production test mode also requires `RESEND_TEST_MODE=true` and `RESEND_TEST_RECIPIENT`. Use a verified sending domain to email other users.
 
-Start with [EASY_SETUP.md](./EASY_SETUP.md). [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md) is the expanded reference.
+New devices require a 10-minute email code or approval through **Workspace → Device requests** on the registered phone. Device approval is enabled by default in development, including Expo Go. Native push requires an installed build; Expo Go can use the approval panel and email instead.
+
+Build Android with `npm run build:apk` or `npm run build:aab`. Installed builds need a stable public HTTPS API URL. The backend's [API reference](backend/API.md) and [security notes](backend/SECURITY.md) describe the supported routes and controls.

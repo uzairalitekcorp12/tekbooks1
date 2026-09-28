@@ -27,6 +27,7 @@ export default function Login(){
   },[]);
 
   async function submit(){
+    if(loading)return;
     if(!email.trim()||!password)return Alert.alert('Enter your sign-in details','Your username and password are required.');
     setLoading(true);
     try{
@@ -35,7 +36,7 @@ export default function Login(){
       await signIn(d.token,d.user);
       router.replace('/(tabs)');
     }catch(e:any){
-      if(e.code==='DEVICE_VERIFICATION_REQUIRED')router.push({pathname:'/(auth)/device-verify',params:{email,challengeId:e.body?.challengeId||'',challengeSecret:e.body?.challengeSecret||''}});
+      if(e.code==='DEVICE_VERIFICATION_REQUIRED')router.push({pathname:'/(auth)/device-verify',params:{email,challengeId:e.body?.challengeId||'',challengeSecret:e.body?.challengeSecret||'',emailSent:String(e.body?.emailSent??''),expiresAt:e.body?.expiresAt||''}});
       else if(e.code==='EMAIL_NOT_VERIFIED')router.push({pathname:'/(auth)/verify',params:{email}});
       else if(e.code==='PENDING_APPROVAL')router.push('/(auth)/pending');
       else Alert.alert('Sign in unavailable',e.message);
@@ -58,7 +59,7 @@ export default function Login(){
           </View>
           <Field label={APP_CONFIG.copy.loginEmailLabel} value={email} onChangeText={setEmail} autoCapitalize="none" autoCorrect={false} placeholder="admin@tekbooks"/>
           <PasswordField label={APP_CONFIG.copy.loginPasswordLabel} value={password} onChangeText={setPassword} placeholder="Enter your password" autoCapitalize="none"/>
-          <Button title={APP_CONFIG.copy.loginButton} onPress={submit} loading={loading}/>
+          <Button title={APP_CONFIG.copy.loginButton} onPress={submit} loading={loading} loadingTitle="Signing in…"/>
           <TouchableOpacity accessibilityRole="button" onPress={()=>router.push('/(auth)/forgot')} style={s.forgot}>
             <Text style={[typography.medium,{fontSize:12,color:colors.primary}]}>{APP_CONFIG.copy.loginForgot}</Text>
           </TouchableOpacity>

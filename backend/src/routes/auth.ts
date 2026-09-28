@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import crypto from 'node:crypto';
 import { User, VerificationToken } from '../models/index.js';
-import { authLimiter, sensitiveLimiter } from '../middleware/security.js';
+import { authLimiter, deviceReadLimiter, sensitiveLimiter } from '../middleware/security.js';
 import { comparePassword, consumeOtp, createOtp, hashPassword, signToken } from '../utils/auth.js';
 import { env } from '../config/env.js';
 import { sendExpoPush } from '../services/push.js';
@@ -11,7 +11,7 @@ import { refreshedOwnedStorageUrl } from '../services/storage.js';
 import { assertEmailRecipientAllowed } from '../services/email.js';
 
 const r = Router();
-r.use(authLimiter);
+r.use((req,res,next)=>['/device/status','/device/requests'].includes(req.path)?deviceReadLimiter(req,res,next):authLimiter(req,res,next));
 
 const tekBooksUsernamePattern = /^[a-z0-9][a-z0-9._-]{1,31}@tekbooks$/;
 const loginIdentifierSchema = z.string().trim().min(3).max(254).refine(value => (
@@ -80,9 +80,9 @@ r.post('/login', async (req,res) => {
       user.deviceId=p.data.deviceId; user.deviceLabel=p.data.deviceLabel || 'Android device';
     } else if (user.deviceId !== p.data.deviceId) {
       const challengeSecret = crypto.randomUUID();
-      const challenge = await createOtp(user,'DEVICE_CHANGE',{ newDeviceId:p.data.deviceId, newDeviceLabel:p.data.deviceLabel || 'New device', challengeSecret });
+      const challenge = await createOtp(user,'DEVICE_CHANGE',{ newDeviceId:p.data.deviceId, newDeviceLabel:p.data.deviceLabel || 'New device', currentDeviceId:user.deviceId, challengeSecret });
       if (user.expoPushToken) await sendExpoPush(user.expoPushToken,'TekBooks login request',`Approve ${p.data.deviceLabel || 'a new device'} or use the email verification code.`,{ challengeId:String(challenge._id), url:'tekbooks://device-requests' });
-      return res.status(409).json({ code:'DEVICE_VERIFICATION_REQUIRED', message:'This email is already bound to another device. Approve it on the current phone or use the email code.', challengeId:String(challenge._id), challengeSecret });
+      return res.status(409).json({ code:'DEVICE_VERIFICATION_REQUIRED', message:'Approve this login on the registered phone or enter the email code.', challengeId:String(challenge._id), challengeSecret,emailSent:challenge.metadata?.emailSent===true,expiresAt:challenge.expiresAt });
     }
   }
   user.lastLoginAt=new Date(); await user.save();
@@ -94,35 +94,44 @@ r.post('/device/verify', sensitiveLimiter, async (req,res) => {
   if (!p.success) return res.status(400).json({ message:'Invalid request' });
   const user = await findUserByLoginIdentifier(p.data.email);
   if (user?.approvalStatus !== 'APPROVED') return res.status(404).json({ message:'Account not found' });
-  const rec = await consumeOtp(user.email,'DEVICE_CHANGE',p.data.code);
+  const rec = await consumeOtp(user.email,'DEVICE_CHANGE',p.data.code,{'metadata.newDeviceId':p.data.deviceId});
   if (!rec || rec.metadata?.newDeviceId !== p.data.deviceId) return res.status(400).json({ message:'Invalid or expired device code' });
-  user.deviceId=p.data.deviceId; user.deviceLabel=p.data.deviceLabel || rec.metadata?.newDeviceLabel || 'Android device'; user.lastLoginAt=new Date(); await user.save();
-  res.json({ token:signToken(user), user:safeUser(user) });
+  const updated=await completeDeviceChange(user,rec,p.data);
+  if(!updated)return res.status(400).json({message:'This device request is no longer current. Sign in again to request approval.'});
+  res.json({ token:signToken(updated), user:safeUser(updated) });
 });
 
 
 r.get('/device/requests', requireAuth, async (req,res) => {
-  const items = await VerificationToken.find({ userId:req.user._id, purpose:'DEVICE_CHANGE', consumedAt:{ $exists:false }, expiresAt:{ $gt:new Date() } }).sort({createdAt:-1}).lean();
-  res.json(items.map((x:any)=>({ id:String(x._id), deviceLabel:x.metadata?.newDeviceLabel||'New device', createdAt:x.createdAt })));
+  const items = await VerificationToken.find({ userId:req.user._id, purpose:'DEVICE_CHANGE', consumedAt:{ $exists:false }, 'metadata.approvedAt':{$exists:false},expiresAt:{ $gt:new Date() } }).sort({createdAt:-1}).lean();
+  res.json(items.map((x:any)=>({ id:String(x._id), deviceLabel:x.metadata?.newDeviceLabel||'New device', createdAt:x.createdAt,expiresAt:x.expiresAt })));
 });
 
 r.post('/device/approve', requireAuth, sensitiveLimiter, async (req,res) => {
+  if(!z.string().regex(/^[a-f\d]{24}$/i).safeParse(req.body?.challengeId).success)return res.status(400).json({message:'Invalid device request'});
   const rec:any = await VerificationToken.findOne({ _id:req.body?.challengeId, userId:req.user._id, purpose:'DEVICE_CHANGE', consumedAt:{ $exists:false }, expiresAt:{ $gt:new Date() } });
   if(!rec) return res.status(404).json({message:'Device request not found or expired'});
   rec.metadata = { ...(rec.metadata||{}), approvedAt:new Date().toISOString() }; rec.markModified('metadata'); await rec.save();
   res.json({message:'Device approved. The new phone can complete sign-in.'});
 });
 
-r.post('/device/status', sensitiveLimiter, async (req,res) => {
-  const p=z.object({challengeId:z.string(),challengeSecret:z.string(),deviceId:z.string(),deviceLabel:z.string().optional()}).safeParse(req.body);
+r.post('/device/status', async (req,res) => {
+  const p=z.object({challengeId:z.string().regex(/^[a-f\d]{24}$/i),challengeSecret:z.string().min(1).max(128),deviceId:z.string().min(1),deviceLabel:z.string().optional()}).safeParse(req.body);
   if(!p.success) return res.status(400).json({message:'Invalid device request'});
   const rec:any=await VerificationToken.findOne({_id:p.data.challengeId,purpose:'DEVICE_CHANGE',consumedAt:{$exists:false},expiresAt:{$gt:new Date()}});
   if(!rec || rec.metadata?.challengeSecret!==p.data.challengeSecret || rec.metadata?.newDeviceId!==p.data.deviceId) return res.status(400).json({message:'Invalid or expired device request'});
   if(!rec.metadata?.approvedAt) return res.status(202).json({approved:false,message:'Still waiting for approval on the current device'});
-  const user=await User.findById(rec.userId);if(!user||user.approvalStatus!=='APPROVED')return res.status(404).json({message:'Account not found'});
-  user.deviceId=p.data.deviceId;user.deviceLabel=p.data.deviceLabel||rec.metadata?.newDeviceLabel||'Android device';user.lastLoginAt=new Date();await user.save();rec.consumedAt=new Date();await rec.save();
-  res.json({approved:true,token:signToken(user),user:safeUser(user)});
+  const user=await User.findById(rec.userId);if(!user||user.approvalStatus!=='APPROVED'||!user.emailVerified)return res.status(404).json({message:'Account not found'});
+  const claimed=await VerificationToken.findOneAndUpdate({_id:rec._id,consumedAt:{$exists:false},expiresAt:{$gt:new Date()},'metadata.challengeSecret':p.data.challengeSecret,'metadata.newDeviceId':p.data.deviceId,'metadata.approvedAt':{$exists:true}},{$set:{consumedAt:new Date()}},{new:true});
+  if(!claimed)return res.status(400).json({message:'Invalid or expired device request'});
+  const updated=await completeDeviceChange(user,claimed,p.data);
+  if(!updated)return res.status(400).json({message:'This device request is no longer current. Sign in again to request approval.'});
+  res.json({approved:true,token:signToken(updated),user:safeUser(updated)});
 });
+
+async function completeDeviceChange(user:any,rec:any,device:{deviceId:string;deviceLabel?:string}){
+  return User.findOneAndUpdate({_id:user._id,approvalStatus:'APPROVED',emailVerified:true,deviceId:rec.metadata?.currentDeviceId??user.deviceId},{$set:{deviceId:device.deviceId,deviceLabel:device.deviceLabel||rec.metadata?.newDeviceLabel||'Android device',expoPushToken:'',lastLoginAt:new Date(),failedLoginCount:0,lockedUntil:null}},{new:true});
+}
 
 r.post('/forgot-password', sensitiveLimiter, async (req,res) => {
   const identifier=String(req.body?.email || ''); const user=await findUserByLoginIdentifier(identifier);

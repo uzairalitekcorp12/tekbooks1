@@ -6,13 +6,15 @@ import {Ionicons} from '@expo/vector-icons';
 import {SafeAreaView,useSafeAreaInsets} from 'react-native-safe-area-context';
 import {radius,typography,useTheme} from '@/lib/theme';
 import {APP_CONFIG} from '@/config/app';
+import {ActivityStatus} from './ActivityStatus';
 
 export function AppBackground({children}:{children:React.ReactNode}){
   const{colors,resolved}=useTheme();
-  return <LinearGradient colors={[colors.background,colors.gradientMid,colors.backgroundAlt] as any} style={{flex:1}}>
+  return <LinearGradient colors={[colors.background,colors.gradientMid,colors.backgroundAlt] as any} style={{flex:1,overflow:'hidden'}}>
     <View style={[s.glow,s.glowOne,{backgroundColor:colors.glow,pointerEvents:'none'}]}/>
     <View style={[s.glow,s.glowTwo,{backgroundColor:colors.glow,opacity:resolved==='dark'?.42:.28,pointerEvents:'none'}]}/>
     <SafeAreaView edges={['left','right']} style={{flex:1}}>{children}</SafeAreaView>
+    <ActivityStatus/>
   </LinearGradient>;
 }
 
@@ -69,13 +71,13 @@ export function PasswordField({label='Password',helper,...p}:Omit<TextInputProps
   </View>;
 }
 
-export function Button({title,onPress,loading,secondary,icon,disabled,danger,compact}:{title:string;onPress:()=>void;loading?:boolean;secondary?:boolean;icon?:any;disabled?:boolean;danger?:boolean;compact?:boolean}){
+export function Button({title,onPress,loading,loadingTitle='Please wait…',secondary,icon,disabled,danger,compact}:{title:string;onPress:()=>void;loading?:boolean;loadingTitle?:string;secondary?:boolean;icon?:any;disabled?:boolean;danger?:boolean;compact?:boolean}){
   const{colors}=useTheme();const h=compact?44:54;const fg=danger?colors.danger:colors.primary;
-  return <TouchableOpacity disabled={disabled||loading} onPress={onPress} activeOpacity={.84} style={{opacity:disabled?0.5:1}}>
+  return <TouchableOpacity accessibilityRole="button" accessibilityLabel={loading?loadingTitle:title} accessibilityState={{disabled:!!(disabled||loading),busy:!!loading}} disabled={disabled||loading} onPress={onPress} activeOpacity={.84} style={{opacity:disabled?0.5:1}}>
     {secondary||danger?<View style={[s.secondary,{height:h,borderColor:danger?colors.danger:colors.borderStrong,backgroundColor:danger?colors.dangerSoft:colors.surfaceStrong}]}>
-      {loading?<ActivityIndicator color={fg}/>:<>{icon?<Ionicons name={icon} size={18} color={fg}/>:null}<Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={.82} style={[s.secondaryText,typography.medium,{color:fg}]}>{title}</Text></>}
+      {loading?<ActivityIndicator color={fg}/>:icon?<Ionicons name={icon} size={18} color={fg}/>:null}<Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={.82} style={[s.secondaryText,typography.medium,{color:fg}]}>{loading?loadingTitle:title}</Text>
     </View>:<LinearGradient colors={[colors.primary,colors.primary2] as any} start={{x:0,y:0}} end={{x:1,y:1}} style={[s.button,{height:h}]}>
-      {loading?<ActivityIndicator color={colors.onPrimary}/>:<>{icon?<Ionicons name={icon} size={18} color={colors.onPrimary}/>:null}<Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={.82} style={[s.buttonText,typography.medium,{color:colors.onPrimary}]}>{title}</Text></>}
+      {loading?<ActivityIndicator color={colors.onPrimary}/>:icon?<Ionicons name={icon} size={18} color={colors.onPrimary}/>:null}<Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={.82} style={[s.buttonText,typography.medium,{color:colors.onPrimary}]}>{loading?loadingTitle:title}</Text>
     </LinearGradient>}
   </TouchableOpacity>;
 }
@@ -121,7 +123,7 @@ export function Notice({title,body,tone='info',icon}:{title:string;body?:string;
 }
 
 export function DetailModal({visible,onClose,title,subtitle,children,footer}:{visible:boolean;onClose:()=>void;title:string;subtitle?:string;children:React.ReactNode;footer?:React.ReactNode}){
-  const{colors,resolved}=useTheme();return <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}><View style={[s.modalRoot,{backgroundColor:colors.overlay}]}><Pressable style={{flex:1}} onPress={onClose}/><BlurView intensity={34} tint={resolved==='dark'?'dark':'light'} style={[s.sheet,{backgroundColor:colors.surfaceStrong,borderColor:colors.border}]}><View style={[s.handle,{backgroundColor:colors.borderStrong}]}/><View style={s.sheetHead}><View style={{flex:1,minWidth:0}}><Text numberOfLines={2} style={[s.sheetTitle,typography.medium,{color:colors.text}]}>{title}</Text>{subtitle?<Text numberOfLines={2} style={[s.sheetSub,typography.regular,{color:colors.textMuted}]}>{subtitle}</Text>:null}</View><IconButton icon="close" onPress={onClose}/></View><ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{paddingBottom:18}}>{children}</ScrollView>{footer?<View style={[s.sheetFooter,{borderTopColor:colors.border,backgroundColor:colors.surfaceStrong}]}>{footer}</View>:null}</BlurView></View></Modal>;
+  const{colors,resolved}=useTheme();return <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}><View style={[s.modalRoot,{backgroundColor:colors.overlay}]}><Pressable style={{flex:1}} onPress={onClose}/><BlurView intensity={34} tint={resolved==='dark'?'dark':'light'} style={[s.sheet,{backgroundColor:colors.surfaceStrong,borderColor:colors.border}]}><View style={[s.handle,{backgroundColor:colors.borderStrong}]}/><View style={s.sheetHead}><View style={{flex:1,minWidth:0}}><Text numberOfLines={2} style={[s.sheetTitle,typography.medium,{color:colors.text}]}>{title}</Text>{subtitle?<Text numberOfLines={2} style={[s.sheetSub,typography.regular,{color:colors.textMuted}]}>{subtitle}</Text>:null}</View><IconButton icon="close" onPress={onClose}/></View><ActivityStatus inline/><ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{paddingBottom:18}}>{children}</ScrollView>{footer?<View style={[s.sheetFooter,{borderTopColor:colors.border,backgroundColor:colors.surfaceStrong}]}>{footer}</View>:null}</BlurView></View></Modal>;
 }
 
 export function InfoRow({label,value,strong}:{label:string;value:React.ReactNode;strong?:boolean}){

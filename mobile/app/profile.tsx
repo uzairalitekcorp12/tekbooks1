@@ -11,17 +11,23 @@ import {AppBackground,Button,Field,GlassCard,IconButton,Notice,ScreenHeader,Sect
 import {useSession} from '@/lib/session';
 
 export default function Profile(){
+  const[uploading,setUploading]=useState<''|'profile'|'logo'>('');
   const{user,refresh}=useSession();const{colors}=useTheme();const page=useResponsivePage(false);const defaults=APP_CONFIG.businessDefaults;
   const[name,setName]=useState(user?.name||''),[businessName,setBusiness]=useState(user?.business?.name||APP_CONFIG.businessDefaults.companyName),[legalName,setLegal]=useState(user?.business?.legalName||APP_CONFIG.businessDefaults.legalName),[trn,setTrn]=useState(user?.business?.trn||APP_CONFIG.businessDefaults.trn),[vat,setVat]=useState(String(user?.business?.vatPercent??defaults.vatPercent)),[email,setEmail]=useState(user?.business?.email||APP_CONFIG.businessDefaults.businessEmail),[phone,setPhone]=useState(user?.business?.phone||APP_CONFIG.businessDefaults.phone),[address,setAddress]=useState(user?.business?.address||APP_CONFIG.businessDefaults.address),[currency,setCurrency]=useState(user?.business?.currency||defaults.currency),[profilePictureUrl,setPic]=useState(user?.profilePictureUrl||''),[logoUrl,setLogo]=useState(user?.business?.logoUrl||''),[saving,setSaving]=useState(false),[logoImageOk,setLogoImageOk]=useState(true);
 
   async function choose(kind:'profile'|'logo'){
+    if(uploading||saving)return;
+    setUploading(kind);
+    try{
     const perm=await ImagePicker.requestMediaLibraryPermissionsAsync();if(!perm.granted)return Alert.alert('Photo access required','Allow photo access to choose an image.');
     const x=await ImagePicker.launchImageLibraryAsync({mediaTypes:['images'],allowsEditing:kind==='profile',aspect:kind==='profile'?([1,1] as [number,number]):undefined,quality:.95});if(x.canceled)return;
     const asset=x.assets[0];
     if(kind==='logo'&&asset.mimeType&&!APP_CONFIG.assets.upload.preferredLogoTypes.some(t=>t===asset.mimeType!.toLowerCase()))return Alert.alert('Use PNG or JPEG for the company logo','PNG or JPEG gives the most reliable quality on invoices and report PDFs. Wide, tall and square logos are all supported.');
     try{const up=await uploadAsset({uri:asset.uri,name:asset.fileName||`${kind}.jpg`,mimeType:asset.mimeType||'image/jpeg',size:asset.fileSize,file:asset.file});if(kind==='profile')setPic(up.url);else{setLogo(up.url);setLogoImageOk(true)}}catch(e:any){Alert.alert('Upload unavailable',e.message)}
+    }catch(e:any){Alert.alert('Photo unavailable',e.message)}finally{setUploading('')}
   }
   async function save(){
+    if(uploading||saving)return;
     if(!name.trim())return Alert.alert('Your name is required');if(!businessName.trim())return Alert.alert('Company name required','This name appears throughout your workspace and documents.');if(Number(vat)<0||Number(vat)>100)return Alert.alert('Check VAT rate','VAT percentage must be between 0 and 100.');
     setSaving(true);try{await api('/profile',{method:'PUT',body:JSON.stringify({name:name.trim(),profilePictureUrl,business:{name:businessName.trim(),legalName:legalName.trim(),logoUrl,trn:trn.trim(),vatPercent:Number(vat),email:email.trim(),phone:phone.trim(),address:address.trim(),currency:currency.trim().toUpperCase()||defaults.currency}})});await refresh();Alert.alert(APP_CONFIG.copy.profileSavedTitle,APP_CONFIG.copy.profileSavedBody)}catch(e:any){Alert.alert('Profile not saved',e.message)}finally{setSaving(false)}
   }
@@ -37,16 +43,16 @@ export default function Profile(){
     </GlassCard>
 
     <SectionTitle title={APP_CONFIG.copy.profilePersonalTitle} subtitle={APP_CONFIG.copy.profilePersonalSubtitle}/>
-    <GlassCard style={{gap:12}}><Field label="Your name" value={name} onChangeText={setName}/><Text style={[s.assetHint,typography.regular,{color:colors.textMuted}]}>{APP_CONFIG.assets.upload.profileHint}</Text><View style={s.photoActions}><View style={{flex:1}}><Button secondary icon="camera-outline" title={profilePictureUrl?'Change photo':'Add profile photo'} onPress={()=>choose('profile')} compact/></View>{profilePictureUrl?<TouchableOpacity onPress={()=>setPic('')} style={[s.removeAction,{borderColor:colors.border,backgroundColor:colors.dangerSoft}]}><Ionicons name="close" size={17} color={colors.danger}/></TouchableOpacity>:null}</View></GlassCard>
+    <GlassCard style={{gap:12}}><Field label="Your name" value={name} onChangeText={setName}/><Text style={[s.assetHint,typography.regular,{color:colors.textMuted}]}>{APP_CONFIG.assets.upload.profileHint}</Text><View style={s.photoActions}><View style={{flex:1}}><Button secondary icon="camera-outline" title={profilePictureUrl?'Change photo':'Add profile photo'} onPress={()=>choose('profile')} loading={uploading==='profile'} loadingTitle="Uploading photo…" disabled={!!uploading||saving} compact/></View>{profilePictureUrl?<TouchableOpacity disabled={!!uploading||saving} onPress={()=>setPic('')} style={[s.removeAction,{borderColor:colors.border,backgroundColor:colors.dangerSoft}]}><Ionicons name="close" size={17} color={colors.danger}/></TouchableOpacity>:null}</View></GlassCard>
 
     <SectionTitle title={APP_CONFIG.copy.companyIdentityTitle} subtitle={APP_CONFIG.copy.companyIdentitySubtitle}/>
     <GlassCard style={{gap:12}}>
-      <TouchableOpacity onPress={()=>choose('logo')} style={[s.logoBox,{borderColor:colors.borderStrong,backgroundColor:colors.surfaceMuted}]}><SmartImage kind="logo" uri={logoUrl} width="90%" height={108} bordered={false} fallbackText={APP_CONFIG.shortMark} onLoadError={()=>setLogoImageOk(false)}/><Text style={[s.logoText,typography.medium,{color:colors.text}]}>{logoUrl?'Tap to replace company logo':'Add company logo'}</Text><Text style={[s.logoHint,typography.regular,{color:colors.textMuted}]}>{APP_CONFIG.assets.upload.logoHint}</Text></TouchableOpacity>
+      <TouchableOpacity disabled={!!uploading||saving} onPress={()=>choose('logo')} style={[s.logoBox,{borderColor:colors.borderStrong,backgroundColor:colors.surfaceMuted}]}><SmartImage kind="logo" uri={logoUrl} width="90%" height={108} bordered={false} fallbackText={APP_CONFIG.shortMark} onLoadError={()=>setLogoImageOk(false)}/><Text style={[s.logoText,typography.medium,{color:colors.text}]}>{uploading==='logo'?'Uploading company logo…':logoUrl?'Tap to replace company logo':'Add company logo'}</Text><Text style={[s.logoHint,typography.regular,{color:colors.textMuted}]}>{APP_CONFIG.assets.upload.logoHint}</Text></TouchableOpacity>
       {logoUrl&&!logoImageOk?<Notice tone="warning" title={APP_CONFIG.copy.logoPreviewUnavailableTitle} body={APP_CONFIG.copy.logoPreviewUnavailableBody}/>:null}
       <View style={s.photoActions}><View style={{flex:1}}><Button secondary icon="image-outline" title={logoUrl?'Replace company logo':'Choose company logo'} onPress={()=>choose('logo')} compact/></View>{logoUrl?<TouchableOpacity onPress={()=>{setLogo('');setLogoImageOk(true)}} style={[s.removeAction,{borderColor:colors.border,backgroundColor:colors.dangerSoft}]}><Ionicons name="close" size={17} color={colors.danger}/></TouchableOpacity>:null}</View>
       <Field label={APP_CONFIG.labels.companyName} value={businessName} onChangeText={setBusiness} placeholder="Company name"/><Field label={`${APP_CONFIG.labels.legalName} (${APP_CONFIG.labels.optional})`} value={legalName} onChangeText={setLegal}/><Field label={`${APP_CONFIG.labels.trn} (${APP_CONFIG.labels.optional})`} value={trn} onChangeText={setTrn}/><Field label="Default VAT %" value={vat} onChangeText={setVat} keyboardType="decimal-pad"/><Field label={`Business email (${APP_CONFIG.labels.optional})`} value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address"/><Field label={`${APP_CONFIG.labels.phone} (${APP_CONFIG.labels.optional})`} value={phone} onChangeText={setPhone}/><Field label={`${APP_CONFIG.labels.address} (${APP_CONFIG.labels.optional})`} value={address} onChangeText={setAddress} multiline/><Field label={APP_CONFIG.labels.currency} value={currency} onChangeText={setCurrency} autoCapitalize="characters" helper="Examples: AED, USD, GBP"/>
     </GlassCard>
-    <View style={{marginTop:16}}><Button title="Save profile & company identity" onPress={save} loading={saving}/></View>
+    <View style={{marginTop:16}}><Button title="Save profile & company identity" onPress={save} loading={saving} loadingTitle="Saving profile…" disabled={!!uploading}/></View>
   </ScrollView></AppBackground>;
 }
 

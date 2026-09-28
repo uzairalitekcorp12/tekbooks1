@@ -1,5 +1,6 @@
 import React,{createContext,useContext,useEffect,useState} from 'react';
-import {api,setRuntimeAuthToken} from './api';
+import {api,getAuthToken,setRuntimeAuthToken,setSessionRevokedHandler} from './api';
+import {beginActivity} from './activity';
 import {registerPushToken} from './notifications';
 import {saveBranding} from './branding';
 import {getDeviceIdentity} from './device';
@@ -11,6 +12,7 @@ const Context=createContext<Ctx>({} as Ctx);
 
 export function SessionProvider({children}:{children:React.ReactNode}){
   const[token,setToken]=useState<string|null>(null);const[user,setUser]=useState<any>(null);const[loading,setLoading]=useState(true);const[error,setError]=useState<string|null>(null);
+  useEffect(()=>{setSessionRevokedHandler(()=>{void signOut()});return()=>setSessionRevokedHandler(null)},[]);
   useEffect(()=>{let cancelled=false;(async()=>{
     try{
       const identity=await getDeviceIdentity();
@@ -26,11 +28,18 @@ export function SessionProvider({children}:{children:React.ReactNode}){
     }catch(error:any){setRuntimeAuthToken(null);if(!cancelled){setToken(null);setUser(null);setError(error?.message||'Session storage could not be initialized.')}if(__DEV__)console.warn('Session initialization failed:',error)}finally{if(!cancelled)setLoading(false)}
   })();return()=>{cancelled=true}},[]);
   async function signIn(t:string,u:any){
+    const activity=beginActivity('Opening your workspace…',2);
+    try{
     const identity=await getDeviceIdentity();
     setRuntimeAuthToken(t);
     setToken(t);setUser(u);setError(null);await saveBranding(u);
     try{if(identity.expoGo&&!APP_CONFIG.security.persistExpoGoSession)await deletePrivateItem('tekbooks_token');else await setPrivateItem('tekbooks_token',t)}catch(error){if(__DEV__)console.warn('Session persistence unavailable:',error)}
-    const push=await registerPushToken();if(push){try{await api('/profile',{method:'PUT',body:JSON.stringify({expoPushToken:push})})}catch{}}
+    // Notification permissions/token registration must not hold up navigation.
+    // Recheck the session so a delayed result cannot update another signed-in user.
+    void registerPushToken().then(async push=>{
+      if(push&&await getAuthToken()===t)await api('/profile',{method:'PUT',body:JSON.stringify({expoPushToken:push}),activityLabel:false});
+    }).catch(()=>{});
+    }finally{activity.end()}
   }
   async function signOut(){setRuntimeAuthToken(null);setToken(null);setUser(null);setError(null);try{await deletePrivateItem('tekbooks_token')}catch(error){if(__DEV__)console.warn('Stored session cleanup failed:',error)}}
   async function refresh(){if(token){try{const u=await api('/profile');setUser(u);setError(null);await saveBranding(u)}catch(refreshError:any){setError(refreshError?.message||'The workspace profile could not be refreshed.');throw refreshError}}}

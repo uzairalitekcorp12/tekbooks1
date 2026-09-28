@@ -27,6 +27,7 @@ export default function Invoices(){
   const[openingStatus,setOpeningStatus]=useState('UNPAID'),[openingPaidAmount,setOpeningPaidAmount]=useState(''),[openingPaymentMethod,setOpeningPaymentMethod]=useState<string>(PAYMENT_METHODS[1]),[openingPaymentNotes,setOpeningPaymentNotes]=useState('');
   const[paymentAmount,setPaymentAmount]=useState(''),[paymentMethod,setPaymentMethod]=useState<string>(PAYMENT_METHODS[1]),[paymentNotes,setPaymentNotes]=useState(''),[paying,setPaying]=useState(false);
   const[showCustomer,setShowCustomer]=useState(false),[customerName,setCustomerName]=useState(''),[customerEmail,setCustomerEmail]=useState(''),[customerPhone,setCustomerPhone]=useState(''),[customerAddress,setCustomerAddress]=useState(''),[customerTrn,setCustomerTrn]=useState(''),[savingCustomer,setSavingCustomer]=useState(false);
+  const[uploading,setUploading]=useState(false);
   const{user}=useSession();const{colors}=useTheme();const page=useResponsivePage(true);
 
   async function load(){
@@ -34,10 +35,10 @@ export default function Invoices(){
     setList(a);setCustomers(b);
     if(!customerId&&b[0])setCustomerId(b[0]._id);
   }
-  useFocusEffect(useCallback(()=>{load().catch(()=>{})},[]));
+  useFocusEffect(useCallback(()=>{void load().catch((e:any)=>Alert.alert('Invoices unavailable',e.message))},[]));
 
   function patchLine(id:string,key:keyof Line,value:string){setLines(v=>v.map(x=>x.id===id?{...x,[key]:value}:x))}
-  async function pick(){try{const x=await DocumentPicker.getDocumentAsync({type:['image/*','application/pdf'],copyToCacheDirectory:true});if(!x.canceled){const next=await uploadAsset(x.assets[0] as any);if(attachment)await deleteUploadedAsset(attachment);setAttachment(next)}}catch(e:any){Alert.alert('Attachment unavailable',e.message)}}
+  async function pick(){if(uploading||saving)return;setUploading(true);try{const x=await DocumentPicker.getDocumentAsync({type:['image/*','application/pdf'],copyToCacheDirectory:true});if(!x.canceled){const next=await uploadAsset(x.assets[0] as any);if(attachment)await deleteUploadedAsset(attachment);setAttachment(next)}}catch(e:any){Alert.alert('Attachment unavailable',e.message)}finally{setUploading(false)}}
   function reset(){const vat=String(user?.business?.vatPercent??APP_CONFIG.businessDefaults.vatPercent);setLines([newLine(vat)]);setDiscountPercent('0');setAttachment(null);setNotes('Thank you for your business.');setDueDays(String(APP_CONFIG.businessDefaults.invoiceDueDays));setOpeningStatus('UNPAID');setOpeningPaidAmount('');setOpeningPaymentMethod(PAYMENT_METHODS[1]);setOpeningPaymentNotes('')}
 
   async function createCustomer(){
@@ -51,7 +52,7 @@ export default function Invoices(){
     }catch(e:any){Alert.alert('Customer not added',e.message)}finally{setSavingCustomer(false)}
   }
 
-  async function create(){
+  async function create(){if(uploading||saving)return;
     if(!customerId)return Alert.alert('Customer required','Select a customer or use “Add new customer” without leaving this invoice.');
     if(lines.some(l=>!l.description.trim()||Number(l.qty)<=0||Number(l.unitPrice)<0||l.unitPrice===''))return Alert.alert('Check line items','Every line needs a description, quantity and valid unit price.');
     if(Number(discountPercent||0)<0||Number(discountPercent||0)>100)return Alert.alert('Check discount','Discount percentage must be between 0% and 100%.');
@@ -121,16 +122,16 @@ export default function Invoices(){
 
       <SectionTitle title="Notes & attachment" subtitle="Both are optional"/>
       <Field label="Notes / payment terms (optional)" value={notes} onChangeText={setNotes} multiline placeholder="Optional payment terms or message"/>
-      <View style={{marginTop:10}}><Button secondary icon="attach" title={attachment?`Replace: ${attachment.name}`:'Add supporting document (optional)'} onPress={pick}/></View>
-      {attachment?<View style={[s.attachmentRow,{borderColor:colors.border,backgroundColor:colors.surfaceMuted}]}><Ionicons name="document-attach-outline" size={18} color={colors.primary}/><Text numberOfLines={1} style={[typography.medium,{fontSize:11.5,color:colors.text,flex:1}]}>{attachment.name||'Supporting document'}</Text><TouchableOpacity onPress={async()=>{await deleteUploadedAsset(attachment);setAttachment(null)}}><Ionicons name="close-circle" size={21} color={colors.textMuted}/></TouchableOpacity></View>:null}
-      <View style={{marginTop:10}}><Button title="Create invoice" onPress={create} loading={saving}/></View>
+      <View style={{marginTop:10}}><Button secondary icon="attach" title={attachment?`Replace: ${attachment.name}`:'Add supporting document (optional)'} onPress={pick} loading={uploading} loadingTitle="Uploading attachment…" disabled={saving}/></View>
+      {attachment?<View style={[s.attachmentRow,{borderColor:colors.border,backgroundColor:colors.surfaceMuted}]}><Ionicons name="document-attach-outline" size={18} color={colors.primary}/><Text numberOfLines={1} style={[typography.medium,{fontSize:11.5,color:colors.text,flex:1}]}>{attachment.name||'Supporting document'}</Text><TouchableOpacity disabled={uploading||saving} onPress={async()=>{await deleteUploadedAsset(attachment);setAttachment(null)}}><Ionicons name="close-circle" size={21} color={colors.textMuted}/></TouchableOpacity></View>:null}
+      <View style={{marginTop:10}}><Button title="Create invoice" onPress={create} loading={saving} loadingTitle="Creating invoice…" disabled={uploading}/></View>
     </GlassCard>:null}
 
     <View style={s.filters}>{['ALL','UNPAID','PARTIAL','PAID'].map(x=><Filter key={x} text={x==='ALL'?'All':x[0]+x.slice(1).toLowerCase()} active={filter===x} onPress={()=>setFilter(x)}/>)}</View>
     {shown.length?<View style={{gap:10}}>{shown.map(x=><InvoiceCard key={x._id} invoice={x} currency={currency} onPress={()=>{setSelected(x);setPaymentAmount(String(Number(x.balance||0).toFixed(2)))}}/>)}</View>:<GlassCard><EmptyState icon="document-text-outline" title="No invoices in this view" body={filter==='ALL'?'Create your first customer invoice when you are ready to bill.':`No ${filter.toLowerCase()} invoices right now.`}/></GlassCard>}
   </ScrollView>
 
-  <DetailModal visible={!!selected} onClose={()=>setSelected(null)} title={selected?.invoiceNumber||'Invoice'} subtitle={selected?.customerSnapshot?.name} footer={selected?<View style={{gap:8}}>{selected.balance>0?<Button icon="card-outline" title="Record payment" onPress={recordPayment} loading={paying} compact/>:null}<Button secondary icon="share-social-outline" title="Share PDF" onPress={()=>sharePdf(selected)} compact/><Button secondary icon="print-outline" title="Print invoice" onPress={()=>printPdf(selected)} compact/><Button danger icon="trash-outline" title="Delete invoice" onPress={deleteInvoice} compact/></View>:undefined}>
+  <DetailModal visible={!!selected} onClose={()=>setSelected(null)} title={selected?.invoiceNumber||'Invoice'} subtitle={selected?.customerSnapshot?.name} footer={selected?<View style={{gap:8}}>{selected.balance>0?<Button icon="card-outline" title="Record payment" onPress={recordPayment} loading={paying} loadingTitle="Recording payment…" compact/>:null}<Button secondary icon="share-social-outline" title="Share PDF" onPress={()=>sharePdf(selected)} compact/><Button secondary icon="print-outline" title="Print invoice" onPress={()=>printPdf(selected)} compact/><Button danger icon="trash-outline" title="Delete invoice" onPress={deleteInvoice} compact/></View>:undefined}>
     {selected?<>
       <View style={[s.invoiceHero,{backgroundColor:selected.status==='PAID'?colors.successSoft:selected.status==='PARTIAL'?colors.warningSoft:colors.dangerSoft,borderColor:colors.border}]}><View style={{flex:1,minWidth:0}}><Text style={[s.detailKicker,typography.medium,{color:colors.textMuted}]}>INVOICE TOTAL</Text><Money value={selected.total} currency={currency} size="lg"/></View><Pill text={selected.status} tone={selected.status==='PAID'?'green':selected.status==='PARTIAL'?'amber':'red'}/></View>
       <InfoRow label="Customer" value={selected.customerSnapshot?.name||'—'}/><InfoRow label="Issue date" value={new Date(selected.issueDate).toLocaleDateString()}/><InfoRow label="Due date" value={new Date(selected.dueDate).toLocaleDateString()}/><InfoRow label="Subtotal" value={<Money value={selected.subtotal} currency={currency} size="sm"/>}/><InfoRow label={`Discount (${Number(selected.discountPercent??(selected.subtotal?Number(selected.discount||0)/Number(selected.subtotal)*100:0)).toFixed(2).replace(/\.00$/,'')}%)`} value={<Money value={selected.discount} currency={currency} size="sm"/>}/><InfoRow label="VAT" value={<Money value={selected.vatAmount} currency={currency} size="sm"/>}/><InfoRow label="Paid" value={<Money value={selected.paidAmount} currency={currency} size="sm" tone="income"/>}/><InfoRow label="Balance" value={<Money value={selected.balance} currency={currency} size="sm" tone={selected.balance>0?'expense':'default'}/>} strong/>
@@ -142,7 +143,7 @@ export default function Invoices(){
     </>:null}
   </DetailModal>
 
-  <DetailModal visible={showCustomer} onClose={()=>setShowCustomer(false)} title="Add customer" subtitle="Save and select the customer for this invoice" footer={<Button title="Save & use customer" onPress={createCustomer} loading={savingCustomer}/>}>
+  <DetailModal visible={showCustomer} onClose={()=>setShowCustomer(false)} title="Add customer" subtitle="Save and select the customer for this invoice" footer={<Button title="Save & use customer" onPress={createCustomer} loading={savingCustomer} loadingTitle="Saving customer…"/>}>
     <View style={{gap:11}}><Field label="Customer / business name" value={customerName} onChangeText={setCustomerName} placeholder="Required"/><Field label="Email (optional)" value={customerEmail} onChangeText={setCustomerEmail} autoCapitalize="none" keyboardType="email-address" placeholder="Optional"/><Field label="Phone (optional)" value={customerPhone} onChangeText={setCustomerPhone} placeholder="Optional"/><Field label="Address (optional)" value={customerAddress} onChangeText={setCustomerAddress} multiline placeholder="Optional"/><Field label="TRN (optional)" value={customerTrn} onChangeText={setCustomerTrn} placeholder="Optional"/></View>
   </DetailModal>
   </AppBackground>;

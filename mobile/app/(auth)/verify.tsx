@@ -11,10 +11,12 @@ export default function Verify(){
   const p=useLocalSearchParams<{email:string}>();
   const[code,setCode]=useState('');
   const[loading,setLoading]=useState(false);
+  const[resending,setResending]=useState(false);
   const{colors}=useTheme();
   const page=useResponsivePage(false);
 
   async function go(){
+    if(loading||resending)return;
     setLoading(true);
     try{
       await api('/auth/verify-email',{method:'POST',body:JSON.stringify({email:p.email,code})});
@@ -27,12 +29,14 @@ export default function Verify(){
   }
 
   async function resend(){
+    if(loading||resending)return;
+    setResending(true);
     try{
       await api('/auth/resend-verification',{method:'POST',body:JSON.stringify({email:p.email})});
       Alert.alert('Sent','A new code was requested.');
     }catch(e:any){
       Alert.alert('Could not resend',e.message);
-    }
+    }finally{setResending(false)}
   }
 
   return <AppBackground>
@@ -43,8 +47,8 @@ export default function Verify(){
       <Text style={[s.p,typography.regular,{color:colors.textMuted}]}>Enter the 6-digit verification code sent to {p.email}. If it does not arrive, request a new code below.</Text>
       <GlassCard style={s.card}>
         <Field label="Verification code" value={code} onChangeText={setCode} keyboardType="number-pad" maxLength={6}/>
-        <Button title="Verify email" onPress={go} loading={loading}/>
-        <Button secondary title="Resend code" onPress={resend}/>
+        <Button title="Verify email" onPress={go} loading={loading} loadingTitle="Verifying email…" disabled={resending}/>
+        <Button secondary title="Resend code" onPress={resend} loading={resending} loadingTitle="Sending code…" disabled={loading}/>
       </GlassCard>
     </ScrollView>
   </AppBackground>;

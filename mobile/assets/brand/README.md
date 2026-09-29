@@ -1,10 +1,10 @@
 # Auth logo artwork
 
-The sign-in screen uses the large, centered `APP_ASSETS.logoBig` image from
-`mobile/config/app.ts`. Until final artwork is supplied, that key safely points
-to `tekbooks-logo.png` so Metro and APK builds continue to work.
+The welcome and sign-in screens use the large, centered `APP_ASSETS.logoBig`
+image from `mobile/config/app.ts`. The checked-in `logo-big.png` is the approved
+transparent TekBooks by Tekcorp lockup.
 
-To install the approved wide logo:
+To replace the approved wide logo later:
 
 1. Save it as `mobile/assets/brand/logo-big.png`.
 2. In `mobile/config/app.ts`, point both login-logo keys at the same artwork so

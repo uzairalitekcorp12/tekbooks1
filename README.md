@@ -13,6 +13,12 @@ npm run dev
 
 Use `backend/.env` for MongoDB, storage and Resend credentials. `mobile/.env` contains the public API URL. Development starts the API and Expo together and updates the phone's LAN address automatically. Use `npm run dev:tunnel` when a LAN connection is unavailable.
 
+To move an existing database, temporarily add `MONGO_NEW_URI` to `backend/.env`,
+then run `npm --prefix backend run db:migrate -- --activate`. The command copies
+all collections and indexes, verifies document counts, and activates the new URI
+only after a successful migration. Use that resulting `MONGODB_URI` value for
+future production deployments as well.
+
 ## Verify
 
 ```powershell

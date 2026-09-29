@@ -3,6 +3,7 @@ import {Alert,KeyboardAvoidingView,Platform,ScrollView,StyleSheet,Text,Touchable
 import {router} from 'expo-router';
 import {Ionicons} from '@expo/vector-icons';
 import {AuthBrand} from '@/components/Auth';
+import {SmartImage} from '@/components/Media';
 import {AppBackground,Button,Field,GlassCard,PasswordField,useResponsivePage} from '@/components/UI';
 import {api} from '@/lib/api';
 import {APP_CONFIG} from '@/config/app';
@@ -19,6 +20,7 @@ export default function Login(){
   const{signIn}=useSession();
   const{colors}=useTheme();
   const page=useResponsivePage(false);
+  const rememberedWorkspace=branding&&branding.companyName!==APP_CONFIG.brand.neutralWorkspaceName?branding:null;
 
   useEffect(()=>{
     let active=true;
@@ -49,10 +51,17 @@ export default function Login(){
     <KeyboardAvoidingView style={{flex:1}} behavior={Platform.OS==='ios'?'padding':undefined}>
       <ScrollView contentContainerStyle={[s.wrap,page]} keyboardShouldPersistTaps="handled">
         <View style={s.brandArea}>
-          <AuthBrand companyName={branding?.companyName} logoUrl={branding?.logoUrl}/>
+          <AuthBrand/>
         </View>
 
         <GlassCard style={s.formCard}>
+          {rememberedWorkspace?<View style={[s.workspace,{backgroundColor:colors.accentSoft}]}>
+            <SmartImage kind="logo" uri={rememberedWorkspace.logoUrl} size={42} fallbackText={rememberedWorkspace.companyName}/>
+            <View style={{flex:1,minWidth:0}}>
+              <Text style={[s.workspaceLabel,typography.medium,{color:colors.primary}]}>RETURNING TO</Text>
+              <Text numberOfLines={1} style={[s.workspaceName,typography.medium,{color:colors.text}]}>{rememberedWorkspace.companyName}</Text>
+            </View>
+          </View>:null}
           <View style={s.heading}>
             <Text style={[s.signTitle,typography.medium,{color:colors.text}]}>{APP_CONFIG.copy.loginSignInTitle}</Text>
             <Text style={[s.signSub,typography.regular,{color:colors.textMuted}]}>{APP_CONFIG.copy.loginSignInSubtitle}</Text>
@@ -84,6 +93,9 @@ const s=StyleSheet.create({
   wrap:{padding:22,paddingTop:38,paddingBottom:42,flexGrow:1,justifyContent:'center'},
   brandArea:{width:'100%',alignItems:'center',justifyContent:'center',paddingHorizontal:4,marginBottom:24},
   formCard:{gap:14,padding:18},
+  workspace:{flexDirection:'row',alignItems:'center',gap:11,borderRadius:17,padding:11,marginBottom:2},
+  workspaceLabel:{fontSize:8,letterSpacing:1.45,marginBottom:3},
+  workspaceName:{fontSize:14.5},
   heading:{gap:5,marginBottom:4},
   signTitle:{fontSize:20},
   signSub:{fontSize:11.5,lineHeight:17},

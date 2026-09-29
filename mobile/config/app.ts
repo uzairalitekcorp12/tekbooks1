@@ -16,6 +16,7 @@ export const APP_CONFIG = {
   shortMark: 'TB',
   tagline: 'Clarity for every business decision',
   poweredBy: 'Powered by TekBooks',
+  productBy: 'By Tekcorp',
   supportEmail: 'support@tekcorp.ae',
 
   /** Product-owned image files. Replace the files at these paths to rebrand the build. */
@@ -115,6 +116,9 @@ export const APP_CONFIG = {
   },
 
   copy: {
+    welcomeEyebrow: 'SMARTER BUSINESS BOOKS',
+    welcomeTitle: 'Every number in its place.',
+    welcomeBody: 'TekBooks brings invoicing, expenses, VAT and business reporting together in one beautifully clear workspace.',
     loginEyebrow: 'BUSINESS BOOK KEEPING',
     loginTitle: 'Your books. Your business. Beautifully clear.',
     loginBody: 'Income, expenses, invoices, VAT, documents and receivables—organized in one private workspace.',
@@ -157,8 +161,8 @@ export const APP_ASSETS = {
   // These aliases prevent Metro from failing before logo-big.png is delivered.
   // When adding one final logo, point both aliases at logo-big.png so the same
   // brand is used in light and dark mode.
-  logoBig: require('../assets/brand/tekbooks-logo.png'),
-  logoBigDark: require('../assets/brand/tekbooks-logo-dark.png'),
+  logoBig: require('../assets/brand/logo-big.png'),
+  logoBigDark: require('../assets/brand/logo-big.png'),
   appIcon: require('../assets/icon.png'),
 };
 

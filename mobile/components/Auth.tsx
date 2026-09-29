@@ -29,24 +29,18 @@ export function AuthBackButton({label='Back'}:{label?:string}){
   </TouchableOpacity>;
 }
 
-/** Large, unframed auth artwork for either TekBooks or the remembered workspace. */
-export function AuthBrand({companyName,logoUrl}:{companyName?:string;logoUrl?:string}){
+/** Large, unframed product artwork shared by welcome and authentication screens. */
+export function AuthBrand(){
   const{resolved}=useTheme();
-  const namedCompany=Boolean(companyName&&companyName!==APP_CONFIG.name&&companyName!==APP_CONFIG.brand.neutralWorkspaceName);
-  const companyBrand=Boolean(logoUrl)||namedCompany;
-  const displayName=namedCompany?companyName!:APP_CONFIG.name;
-  const height=companyBrand?APP_CONFIG.assets.productLogo.companyLoginHeight:APP_CONFIG.assets.productLogo.loginHeight;
-  const maxWidth=companyBrand?APP_CONFIG.assets.productLogo.companyLoginMaxWidth:APP_CONFIG.assets.productLogo.loginMaxWidth;
   return <View style={s.brand}>
     <SmartImage
-      accessibilityLabel={`${displayName} logo`}
-      fallbackText={displayName}
-      height={height}
+      accessibilityLabel="TekBooks by Tekcorp logo"
+      fallbackText={APP_CONFIG.name}
+      height={APP_CONFIG.assets.productLogo.loginHeight}
       kind="logo"
       plain
-      source={logoUrl?undefined:(resolved==='dark'?APP_ASSETS.logoBigDark:APP_ASSETS.logoBig)}
-      style={{maxWidth}}
-      uri={logoUrl}
+      source={resolved==='dark'?APP_ASSETS.logoBigDark:APP_ASSETS.logoBig}
+      style={{maxWidth:APP_CONFIG.assets.productLogo.loginMaxWidth}}
       width="100%"
     />
   </View>;

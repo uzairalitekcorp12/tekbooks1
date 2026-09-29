@@ -18,6 +18,7 @@
     "config:check": "npm run compile --silent && node dist/scripts/config-check.js",
     "http:check": "npm run compile --silent && node dist/scripts/http-check.js",
     "db:check": "tsx src/scripts/db-check.ts",
+    "db:migrate": "tsx src/scripts/migrate-mongo.ts",
     "storage:check": "tsx src/scripts/storage-check.ts",
     "storage:presign-check": "npm run compile --silent && node dist/scripts/presign-check.js",
     "storage:roundtrip-check": "tsx src/scripts/storage-roundtrip-check.ts",

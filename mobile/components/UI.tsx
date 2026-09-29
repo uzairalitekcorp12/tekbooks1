@@ -1,5 +1,5 @@
 import React,{useMemo,useState} from 'react';
-import {ActivityIndicator,FlatList,Modal,Pressable,ScrollView,StyleProp,StyleSheet,Text,TextInput,TextInputProps,TextStyle,TouchableOpacity,useWindowDimensions,View,ViewStyle} from 'react-native';
+import {ActivityIndicator,FlatList,Modal,Platform,Pressable,ScrollView,StyleProp,StyleSheet,Text,TextInput,TextInputProps,TextStyle,TouchableOpacity,useWindowDimensions,View,ViewStyle} from 'react-native';
 import {BlurView} from 'expo-blur';
 import {LinearGradient} from 'expo-linear-gradient';
 import {Ionicons} from '@expo/vector-icons';
@@ -22,7 +22,8 @@ export function AppBackground({children}:{children:React.ReactNode}){
 export function useResponsivePage(tabbed=true){
   const insets=useSafeAreaInsets();const{width}=useWindowDimensions();const l=APP_CONFIG.layout;
   const horizontal=width<l.compactPhoneWidth?l.compactHorizontalPadding:width>=600?l.largeHorizontalPadding:l.regularHorizontalPadding;
-  return {paddingHorizontal:horizontal,paddingTop:Math.max(insets.top+16,38),paddingBottom:(tabbed?78:28)+insets.bottom,width:'100%' as const,maxWidth:l.phoneContentMaxWidth,alignSelf:'center' as const};
+  const webWidth=Math.max(0,Math.min(width,l.phoneContentMaxWidth)-horizontal*2);
+  return {paddingHorizontal:Platform.OS==='web'?0:horizontal,paddingTop:Math.max(insets.top+16,38),paddingBottom:(tabbed?78:28)+insets.bottom,width:Platform.OS==='web'?webWidth:'100%' as const,maxWidth:l.phoneContentMaxWidth,alignSelf:'center' as const};
 }
 
 export function ScreenHeader({title,subtitle,right}:{title:string;subtitle?:string;right?:React.ReactNode}){

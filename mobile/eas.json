@@ -5,12 +5,12 @@
     "preview": {
       "distribution":"internal",
       "environment":"preview",
-      "env":{"EXPO_PUBLIC_API_URL":"https://tekbooks-apzv.vercel.app/api","EXPO_PUBLIC_AUTO_LAN":"false","EXPO_PUBLIC_PROXY_API_THROUGH_METRO":"false"},
+      "env":{"EXPO_PUBLIC_API_URL":"https://tekbooks1.vercel.app/api","EXPO_PUBLIC_AUTO_LAN":"false","EXPO_PUBLIC_PROXY_API_THROUGH_METRO":"false"},
       "android":{"buildType":"apk"}
     },
     "production": {
       "environment":"production",
-      "env":{"EXPO_PUBLIC_API_URL":"https://tekbooks-apzv.vercel.app/api","EXPO_PUBLIC_AUTO_LAN":"false","EXPO_PUBLIC_PROXY_API_THROUGH_METRO":"false"},
+      "env":{"EXPO_PUBLIC_API_URL":"https://tekbooks1.vercel.app/api","EXPO_PUBLIC_AUTO_LAN":"false","EXPO_PUBLIC_PROXY_API_THROUGH_METRO":"false"},
       "android":{"buildType":"app-bundle"}
     }
   }

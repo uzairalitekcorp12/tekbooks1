@@ -26,7 +26,7 @@ let parsedApi;
 try{parsedApi=new URL(apiUrl)}catch{}
 
 const problems=[];
-if(!parsedApi||parsedApi.protocol!=='https:'||!parsedApi.pathname.replace(/\/$/,'').endsWith('/api'))problems.push('EXPO_PUBLIC_API_URL must be an HTTPS URL ending in /api.');
+if(!parsedApi||parsedApi.protocol!=='https:'||!parsedApi.hostname.includes('.')||parsedApi.username||parsedApi.password||parsedApi.pathname.replace(/\/$/,'')!=='/api')problems.push('EXPO_PUBLIC_API_URL must be a valid HTTPS public URL with the /api path.');
 if(values.EXPO_PUBLIC_AUTO_LAN!=='false')problems.push('EXPO_PUBLIC_AUTO_LAN must be false for Vercel/APK mode.');
 if(values.EXPO_PUBLIC_PROXY_API_THROUGH_METRO!=='false')problems.push('EXPO_PUBLIC_PROXY_API_THROUGH_METRO must be false for Vercel/APK mode.');
 

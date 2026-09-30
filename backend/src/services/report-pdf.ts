@@ -3,7 +3,7 @@ import {REPORT_BRAND as B} from '../config/brand.js';
 import {pdfImageDimensions} from '../utils/assets.js';
 
 const LEFT=40,RIGHT=555,WIDTH=RIGHT-LEFT,CONTENT_BOTTOM=752;
-const DARK='#0B7B6D',INK='#17332F',MUTED='#5E726E',LINE='#D9E6E2',PALE='#F3F8F6',TEAL='#087E6D';
+const DARK='#087680',INK='#17332F',MUTED='#5E726E',LINE='#D9E6E2',PALE='#F3F8F6',TEAL='#087E6D';
 type Column={label:string;width:number;align?:'left'|'right'};
 type Row={cells:string[];detail?:string;emphasis?:boolean;tone?:string};
 type ReportContext={doc:PDFKit.PDFDocument;business:any;logo:Buffer|null;period:string;currency:string;generated:string};

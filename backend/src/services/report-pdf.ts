@@ -34,9 +34,9 @@ function pageHeader(ctx:ReportContext){
   doc.y=185;
 }
 function nextPage(ctx:ReportContext){ctx.doc.addPage();pageHeader(ctx)}
-function space(ctx:ReportContext,height:number){if(ctx.doc.y+height>CONTENT_BOTTOM)nextPage(ctx)}
+function space(ctx:ReportContext,height:number){if(ctx.doc.y+height>CONTENT_BOTTOM){nextPage(ctx);return true}return false}
 function section(ctx:ReportContext,title:string,description?:string){
-  space(ctx,65);
+  space(ctx,140);
   const {doc}=ctx,y=doc.y+7;
   doc.rect(LEFT,y+1,3,20).fill(TEAL);
   doc.font('Helvetica-Bold').fontSize(12).fillColor(DARK).text(title,LEFT+14,y,{width:WIDTH-14,height:18,ellipsis:true});
@@ -53,7 +53,11 @@ function tableHeader(ctx:ReportContext,columns:Column[]){
 }
 function table(ctx:ReportContext,title:string,columns:Column[],rows:Row[],emptyMessage:string){
   if(!rows.length){empty(ctx,emptyMessage);return}
-  space(ctx,80);tableHeader(ctx,columns);
+  if(space(ctx,80)){
+    ctx.doc.font('Helvetica-Bold').fontSize(8).fillColor(MUTED).text(`${title}  |  continued`,LEFT,ctx.doc.y,{width:WIDTH,height:14});
+    ctx.doc.y+=23;
+  }
+  tableHeader(ctx,columns);
   rows.forEach((row,index)=>{
     const height=row.detail?46:34;
     if(ctx.doc.y+height>CONTENT_BOTTOM){nextPage(ctx);ctx.doc.font('Helvetica-Bold').fontSize(8).fillColor(MUTED).text(`${title}  |  continued`,LEFT,ctx.doc.y,{width:WIDTH,height:14});ctx.doc.y+=23;tableHeader(ctx,columns)}
@@ -156,14 +160,12 @@ export async function renderReportPdf(data:any,business:any,currency:string,peri
         'No suppliers in this workspace.');
     }
     if(sections.has('vat')){
-      section(ctx,'VAT position','Summary of VAT recorded in TekBooks');
+      section(ctx,'VAT position','Recorded VAT summary; confirm filing treatment before submission');
       table(ctx,'VAT position',[{label:'VAT measure',width:325},{label:'Amount',width:190,align:'right'}],[
         {cells:['Output VAT on invoices',money(data.summary.outputVat,currency)]},
         {cells:['Input VAT on expenses',money(data.summary.inputVat,currency)]},
         {cells:['VAT payable / (recoverable)',money(data.summary.vatPayable,currency)],emphasis:true,tone:data.summary.vatPayable<0?B.danger:TEAL}
       ],'');
-      space(ctx,40);doc.font('Helvetica').fontSize(7).fillColor(MUTED)
-        .text('VAT figures reflect entries recorded in TekBooks. Confirm filing treatment with your tax adviser.',LEFT,doc.y,{width:WIDTH,lineGap:2});
     }
     const pages=doc.bufferedPageRange();for(let i=0;i<pages.count;i++){doc.switchToPage(i);footer(ctx,i+1,pages.count)}
     doc.end();return completed;

@@ -42,9 +42,6 @@ async function data(uid:any,q:any){
   return{tx,invoices,parties,incomeTx,expenseTx,receivables,customerStatements,supplierStatements,incomeCategories:grouped(incomeTx,'category'),expenseCategories:grouped(expenseTx,'category'),summary:{income,expenses,profit:income-expenses,receivables:sum(receivables,'balance'),inputVat,outputVat,vatPayable:outputVat-inputVat}}
 }
 function periodLabel(q:any){if(!q.from&&!q.to)return'All recorded activity';const from=q.from?new Date(String(q.from)).toLocaleDateString('en-GB',{timeZone:'UTC'}):'Beginning';const to=q.to?new Date(String(q.to)).toLocaleDateString('en-GB',{timeZone:'UTC'}):'Today';return `${from} to ${to}`}
-function money(v:any,c='AED'){return `${c} ${Number(v||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}`}
-function safe(v:any){return String(v??'').trim()}
-
 function excelHeader(ws:any,title:string,subtitle:string){
   ws.mergeCells('A1:F1');ws.mergeCells('A2:F2');ws.mergeCells('G1:H2');
   ws.getCell('A1').value=title;ws.getCell('A1').font={name:'Calibri',size:20,bold:true,color:{argb:'FFFFFFFF'}};

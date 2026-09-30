@@ -1,18 +1,16 @@
 import {useState} from 'react';
-import {Alert,ScrollView,StyleSheet,Text,View} from 'react-native';
+import {Alert,StyleSheet} from 'react-native';
+import {FormScrollView} from '@/components/FormScrollView';
 import {router,useLocalSearchParams} from 'expo-router';
-import {AuthBackButton} from '@/components/Auth';
+import {AuthBackButton,AuthBrandHeader,AuthFormHeading} from '@/components/Auth';
 import {AppBackground,Button,Field,GlassCard,useResponsivePage} from '@/components/UI';
-import {Logo} from '@/components/Logo';
 import {api} from '@/lib/api';
-import {typography,useTheme} from '@/lib/theme';
 
 export default function Verify(){
   const p=useLocalSearchParams<{email:string}>();
   const[code,setCode]=useState('');
   const[loading,setLoading]=useState(false);
   const[resending,setResending]=useState(false);
-  const{colors}=useTheme();
   const page=useResponsivePage(false);
 
   async function go(){
@@ -40,24 +38,20 @@ export default function Verify(){
   }
 
   return <AppBackground>
-    <ScrollView contentContainerStyle={[s.wrap,page]} keyboardShouldPersistTaps="handled">
+    <FormScrollView contentContainerStyle={[s.wrap,page]} keyboardShouldPersistTaps="handled">
       <AuthBackButton/>
-      <View style={s.logo}><Logo/></View>
-      <Text style={[s.h1,typography.medium,{color:colors.text}]}>Check your email</Text>
-      <Text style={[s.p,typography.regular,{color:colors.textMuted}]}>Enter the 6-digit verification code sent to {p.email}. If it does not arrive, request a new code below.</Text>
+      <AuthBrandHeader/>
       <GlassCard style={s.card}>
+        <AuthFormHeading title="Check your email" subtitle={`Enter the 6-digit code sent to ${p.email}. You can request a new code below.`}/>
         <Field label="Verification code" value={code} onChangeText={setCode} keyboardType="number-pad" maxLength={6}/>
         <Button title="Verify email" onPress={go} loading={loading} loadingTitle="Verifying email…" disabled={resending}/>
         <Button secondary title="Resend code" onPress={resend} loading={resending} loadingTitle="Sending code…" disabled={loading}/>
       </GlassCard>
-    </ScrollView>
+    </FormScrollView>
   </AppBackground>;
 }
 
 const s=StyleSheet.create({
-  wrap:{padding:24,paddingBottom:40},
-  logo:{marginTop:24},
-  h1:{fontSize:32,marginTop:34},
-  p:{lineHeight:21,marginTop:10},
-  card:{gap:14,marginTop:24},
+  wrap:{padding:22,paddingTop:22,paddingBottom:40},
+  card:{gap:14,padding:18},
 });

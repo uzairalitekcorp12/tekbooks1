@@ -1,11 +1,10 @@
 import {useState} from 'react';
-import {Alert,ScrollView,StyleSheet,Text,View} from 'react-native';
+import {Alert,StyleSheet} from 'react-native';
+import {FormScrollView} from '@/components/FormScrollView';
 import {router} from 'expo-router';
-import {AuthBackButton} from '@/components/Auth';
-import {Logo} from '@/components/Logo';
+import {AuthBackButton,AuthBrandHeader,AuthFormHeading} from '@/components/Auth';
 import {AppBackground,Button,Field,GlassCard,PasswordField,useResponsivePage} from '@/components/UI';
 import {api} from '@/lib/api';
-import {typography,useTheme} from '@/lib/theme';
 import {APP_CONFIG} from '@/config/app';
 
 export default function Signup(){
@@ -14,7 +13,6 @@ export default function Signup(){
   const[email,setEmail]=useState('');
   const[password,setPassword]=useState('');
   const[loading,setLoading]=useState(false);
-  const{colors}=useTheme();
   const page=useResponsivePage(false);
 
   async function go(){
@@ -31,26 +29,22 @@ export default function Signup(){
   }
 
   return <AppBackground>
-    <ScrollView contentContainerStyle={[s.wrap,page]} keyboardShouldPersistTaps="handled">
+    <FormScrollView contentContainerStyle={[s.wrap,page]} keyboardShouldPersistTaps="handled">
       <AuthBackButton label="Back to sign in"/>
-      <View style={s.logo}><Logo/></View>
-      <Text style={[s.h1,typography.medium,{color:colors.text}]}>Create your business workspace</Text>
-      <Text style={[s.p,typography.regular,{color:colors.textMuted}]}>Verify your email, then your organization access is reviewed before the first secure sign-in.</Text>
+      <AuthBrandHeader/>
       <GlassCard style={s.card}>
+        <AuthFormHeading title="Create your workspace" subtitle="Set up your business details and verify your email. Access is reviewed before your first sign-in."/>
         <Field label="Your name" value={name} onChangeText={setName}/>
         <Field label="Company name" value={businessName} onChangeText={setBusiness}/>
         <Field label="Business email" value={email} onChangeText={setEmail} autoCapitalize="none" autoCorrect={false} keyboardType="email-address"/>
         <PasswordField label="Password" helper="Minimum 8 characters" value={password} onChangeText={setPassword} autoCapitalize="none"/>
         <Button title="Create workspace" onPress={go} loading={loading} loadingTitle="Creating workspace…"/>
       </GlassCard>
-    </ScrollView>
+    </FormScrollView>
   </AppBackground>;
 }
 
 const s=StyleSheet.create({
-  wrap:{padding:24,paddingBottom:40},
-  logo:{marginTop:24},
-  h1:{fontSize:31,letterSpacing:-1,marginTop:34},
-  p:{lineHeight:21,marginTop:10},
-  card:{gap:14,marginTop:24},
+  wrap:{padding:22,paddingTop:22,paddingBottom:40},
+  card:{gap:14,padding:18},
 });

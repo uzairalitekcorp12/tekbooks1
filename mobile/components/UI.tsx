@@ -1,5 +1,5 @@
 import React,{useMemo,useState} from 'react';
-import {ActivityIndicator,FlatList,Modal,Platform,Pressable,ScrollView,StyleProp,StyleSheet,Text,TextInput,TextInputProps,TextStyle,TouchableOpacity,useWindowDimensions,View,ViewStyle} from 'react-native';
+import {ActivityIndicator,FlatList,KeyboardAvoidingView,Modal,Platform,Pressable,ScrollView,StyleProp,StyleSheet,Text,TextInput,TextInputProps,TextStyle,TouchableOpacity,useWindowDimensions,View,ViewStyle} from 'react-native';
 import {BlurView} from 'expo-blur';
 import {LinearGradient} from 'expo-linear-gradient';
 import {Ionicons} from '@expo/vector-icons';
@@ -7,6 +7,7 @@ import {SafeAreaView,useSafeAreaInsets} from 'react-native-safe-area-context';
 import {radius,typography,useTheme} from '@/lib/theme';
 import {APP_CONFIG} from '@/config/app';
 import {ActivityStatus} from './ActivityStatus';
+import {FormScrollView,useFormFocus} from './FormScrollView';
 
 export function AppBackground({children}:{children:React.ReactNode}){
   const{colors,resolved}=useTheme();
@@ -50,20 +51,20 @@ export function GlassCard({children,style,intensity=22}:{children:React.ReactNod
 }
 
 export function Field({label,helper,...p}:TextInputProps&{label?:string;helper?:string}){
-  const{colors}=useTheme();
+  const{colors}=useTheme();const reveal=useFormFocus();
   return <View style={{gap:7,minWidth:0}}>
     {label?<Text style={[s.label,typography.medium,{color:colors.text}]}>{label}</Text>:null}
-    <TextInput placeholderTextColor={colors.textSoft} {...p} style={[s.input,typography.regular,{borderColor:colors.border,backgroundColor:colors.surfaceStrong,color:colors.text},p.style]}/>
+    <TextInput placeholderTextColor={colors.textSoft} {...p} onFocus={event=>{p.onFocus?.(event);reveal?.()}} onContentSizeChange={event=>{p.onContentSizeChange?.(event);if(p.multiline)reveal?.()}} style={[s.input,typography.regular,{borderColor:colors.border,backgroundColor:colors.surfaceStrong,color:colors.text},p.style]}/>
     {helper?<Text style={[typography.regular,{fontSize:10,color:colors.textMuted,lineHeight:15}]}>{helper}</Text>:null}
   </View>;
 }
 
 export function PasswordField({label='Password',helper,...p}:Omit<TextInputProps,'secureTextEntry'>&{label?:string;helper?:string}){
-  const{colors}=useTheme();const[visible,setVisible]=useState(false);
+  const{colors}=useTheme();const[visible,setVisible]=useState(false);const reveal=useFormFocus();
   return <View style={{gap:7,minWidth:0}}>
     {label?<Text style={[s.label,typography.medium,{color:colors.text}]}>{label}</Text>:null}
     <View style={[s.passwordWrap,{borderColor:colors.border,backgroundColor:colors.surfaceStrong}]}>
-      <TextInput placeholderTextColor={colors.textSoft} {...p} secureTextEntry={!visible} style={[s.passwordInput,typography.regular,{color:colors.text},p.style]}/>
+      <TextInput placeholderTextColor={colors.textSoft} {...p} onFocus={event=>{p.onFocus?.(event);reveal?.()}} secureTextEntry={!visible} style={[s.passwordInput,typography.regular,{color:colors.text},p.style]}/>
       <TouchableOpacity accessibilityRole="button" accessibilityLabel={visible?'Hide password':'Show password'} onPress={()=>setVisible(v=>!v)} style={s.passwordToggle}>
         <Ionicons name={visible?'eye-off-outline':'eye-outline'} size={20} color={colors.textMuted}/>
       </TouchableOpacity>
@@ -110,11 +111,11 @@ export function SelectField({label,value,options,onChange,placeholder='Select an
       <Text numberOfLines={1} style={[typography.regular,{fontSize:14,color:selected?colors.text:colors.textSoft,flex:1,minWidth:0}]}>{selected?.label||placeholder}</Text><Ionicons name="chevron-down" size={17} color={colors.textMuted}/>
     </TouchableOpacity>
     {helper?<Text style={[typography.regular,{fontSize:10,color:colors.textMuted,lineHeight:15}]}>{helper}</Text>:null}
-    <Modal visible={open} transparent animationType="fade" onRequestClose={()=>setOpen(false)}><View style={[s.selectOverlay,{backgroundColor:colors.overlay}]}><Pressable style={StyleSheet.absoluteFill} onPress={()=>setOpen(false)}/><View style={[s.selectPanel,{backgroundColor:colors.surfaceStrong,borderColor:colors.border}]}>
+    <Modal visible={open} transparent animationType="fade" onRequestClose={()=>setOpen(false)}><KeyboardAvoidingView behavior={Platform.OS==='ios'?'padding':undefined} style={[s.selectOverlay,{backgroundColor:colors.overlay}]}><Pressable style={StyleSheet.absoluteFill} onPress={()=>setOpen(false)}/><View style={[s.selectPanel,{backgroundColor:colors.surfaceStrong,borderColor:colors.border}]}>
       <View style={s.selectHead}><View style={{flex:1,minWidth:0}}><Text style={[s.selectTitle,typography.medium,{color:colors.text}]}>{label||'Choose option'}</Text><Text style={[typography.regular,{fontSize:11,color:colors.textMuted,marginTop:3}]}>{options.length} available</Text></View><IconButton icon="close" onPress={()=>setOpen(false)}/></View>
       {options.length>8?<TextInput value={query} onChangeText={setQuery} placeholder="Search" placeholderTextColor={colors.textSoft} style={[s.search,typography.regular,{color:colors.text,borderColor:colors.border,backgroundColor:colors.surfaceMuted}]}/>:null}
       <FlatList data={filtered} keyExtractor={x=>x.key||'none'} style={{maxHeight:420}} keyboardShouldPersistTaps="handled" renderItem={({item})=>{const active=item.key===value;return <TouchableOpacity onPress={()=>{onChange(item.key);setOpen(false);setQuery('')}} style={[s.selectRow,{borderBottomColor:colors.border,backgroundColor:active?colors.accentSoft:'transparent'}]}><View style={{flex:1,minWidth:0}}><Text numberOfLines={2} style={[typography.medium,{fontSize:14,color:colors.text}]}>{item.label}</Text>{item.meta?<Text numberOfLines={2} style={[typography.regular,{fontSize:10,color:colors.textMuted,marginTop:3}]}>{item.meta}</Text>:null}</View>{active?<Ionicons name="checkmark-circle" size={20} color={colors.primary}/>:null}</TouchableOpacity>}} ListEmptyComponent={<Text style={[typography.regular,{padding:18,color:colors.textMuted,textAlign:'center'}]}>No matching options</Text>}/>
-    </View></View></Modal>
+    </View></KeyboardAvoidingView></Modal>
   </View>;
 }
 
@@ -124,7 +125,7 @@ export function Notice({title,body,tone='info',icon}:{title:string;body?:string;
 }
 
 export function DetailModal({visible,onClose,title,subtitle,children,footer}:{visible:boolean;onClose:()=>void;title:string;subtitle?:string;children:React.ReactNode;footer?:React.ReactNode}){
-  const{colors,resolved}=useTheme();return <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}><View style={[s.modalRoot,{backgroundColor:colors.overlay}]}><Pressable style={{flex:1}} onPress={onClose}/><BlurView intensity={34} tint={resolved==='dark'?'dark':'light'} style={[s.sheet,{backgroundColor:colors.surfaceStrong,borderColor:colors.border}]}><View style={[s.handle,{backgroundColor:colors.borderStrong}]}/><View style={s.sheetHead}><View style={{flex:1,minWidth:0}}><Text numberOfLines={2} style={[s.sheetTitle,typography.medium,{color:colors.text}]}>{title}</Text>{subtitle?<Text numberOfLines={2} style={[s.sheetSub,typography.regular,{color:colors.textMuted}]}>{subtitle}</Text>:null}</View><IconButton icon="close" onPress={onClose}/></View><ActivityStatus inline/><ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{paddingBottom:18}}>{children}</ScrollView>{footer?<View style={[s.sheetFooter,{borderTopColor:colors.border,backgroundColor:colors.surfaceStrong}]}>{footer}</View>:null}</BlurView></View></Modal>;
+  const{colors,resolved}=useTheme();return <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}><KeyboardAvoidingView behavior={Platform.OS==='ios'?'padding':undefined} style={[s.modalRoot,{backgroundColor:colors.overlay}]}><Pressable style={{flex:1}} onPress={onClose}/><BlurView intensity={34} tint={resolved==='dark'?'dark':'light'} style={[s.sheet,{backgroundColor:colors.surfaceStrong,borderColor:colors.border}]}><View style={[s.handle,{backgroundColor:colors.borderStrong}]}/><View style={s.sheetHead}><View style={{flex:1,minWidth:0}}><Text numberOfLines={2} style={[s.sheetTitle,typography.medium,{color:colors.text}]}>{title}</Text>{subtitle?<Text numberOfLines={2} style={[s.sheetSub,typography.regular,{color:colors.textMuted}]}>{subtitle}</Text>:null}</View><IconButton icon="close" onPress={onClose}/></View><ActivityStatus inline/><FormScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{paddingBottom:24}}>{children}</FormScrollView>{footer?<View style={[s.sheetFooter,{borderTopColor:colors.border,backgroundColor:colors.surfaceStrong}]}>{footer}</View>:null}</BlurView></KeyboardAvoidingView></Modal>;
 }
 
 export function InfoRow({label,value,strong}:{label:string;value:React.ReactNode;strong?:boolean}){

@@ -1,7 +1,8 @@
 import {useCallback,useRef,useState} from 'react';
-import {Alert,AppState,ScrollView,StyleSheet,Text,View} from 'react-native';
+import {Alert,AppState,StyleSheet,Text} from 'react-native';
+import {FormScrollView} from '@/components/FormScrollView';
 import {router,useFocusEffect,useLocalSearchParams} from 'expo-router';
-import {AuthBackButton} from '@/components/Auth';
+import {AuthBackButton,AuthBrandHeader,AuthFormHeading} from '@/components/Auth';
 import {AppBackground,Button,Field,GlassCard,Notice,useResponsivePage} from '@/components/UI';
 import {api} from '@/lib/api';
 import {getDeviceIdentity} from '@/lib/device';
@@ -44,18 +45,18 @@ export default function DeviceVerify(){
     const listener=AppState.addEventListener('change',state=>{if(state==='active')void latestCheck.current(true)});
     return()=>{active.current=false;clearInterval(timer);listener.remove()};
   },[]));
-  return <AppBackground><ScrollView contentContainerStyle={[s.wrap,page]} keyboardShouldPersistTaps="handled">
+  return <AppBackground><FormScrollView contentContainerStyle={[s.wrap,page]} keyboardShouldPersistTaps="handled">
     <AuthBackButton label="Cancel sign in"/>
-    <Text style={[s.h1,typography.medium,{color:colors.text}]}>Approve your new device</Text>
-    <Text style={[s.p,typography.regular,{color:colors.textMuted}]}>Open Workspace → Device requests on your registered phone and approve this login, or enter the code from your registered email.</Text>
-    <View style={{marginVertical:16}}><Notice title={error?'Approval check unavailable':'Waiting for device approval'} body={error||status} tone={error?'warning':'info'}/></View>
-    {p.emailSent==='false'?<View style={{marginBottom:16}}><Notice tone="warning" title="Email code could not be sent" body="You can still approve this request in Device requests on your registered phone. To request another email code, return to sign in and try again."/></View>:null}
+    <AuthBrandHeader/>
     <GlassCard style={s.card}>
+      <AuthFormHeading title="Approve your new device" subtitle="Approve this sign-in in Workspace → Device requests on your registered phone, or enter the code sent to your email."/>
+      <Notice title={error?'Approval check unavailable':'Waiting for device approval'} body={error||status} tone={error?'warning':'info'}/>
+      {p.emailSent==='false'?<Notice tone="warning" title="Email code could not be sent" body="You can still approve this request in Device requests on your registered phone. To request another email code, return to sign in and try again."/>:null}
       <Field label="Email approval code" value={code} onChangeText={setCode} keyboardType="number-pad" maxLength={6} helper={p.emailSent==='true'?'A code was sent to your registered inbox. Check spam too.':'Enter the code if you received one.'}/>
       <Button title="Continue with email code" onPress={go} loading={busy==='verify'} loadingTitle="Verifying device…" disabled={!!busy}/>
       {p.challengeId?<Button secondary title="Check approval now" onPress={()=>void check()} loading={busy==='check'} loadingTitle="Checking approval…" disabled={!!busy}/>:null}
       <Text style={[s.hint,typography.regular,{color:colors.textMuted}]}>Approval is checked automatically every 15 seconds. Requests expire after 10 minutes. This replaces the registered device.</Text>
     </GlassCard>
-  </ScrollView></AppBackground>;
+  </FormScrollView></AppBackground>;
 }
-const s=StyleSheet.create({wrap:{padding:24,paddingBottom:40},h1:{fontSize:28,marginTop:28},p:{fontSize:13,lineHeight:21,marginTop:12},card:{gap:14},hint:{fontSize:11,lineHeight:17}});
+const s=StyleSheet.create({wrap:{padding:22,paddingTop:22,paddingBottom:40},card:{gap:14,padding:18},hint:{fontSize:11,lineHeight:17}});

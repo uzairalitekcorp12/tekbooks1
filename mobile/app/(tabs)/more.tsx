@@ -2,9 +2,10 @@ import {ScrollView,StyleSheet,Switch,Text,TouchableOpacity,View} from 'react-nat
 import {router} from 'expo-router';
 import {Ionicons} from '@expo/vector-icons';
 import {SmartImage} from '@/components/Media';
+import {Logo} from '@/components/Logo';
 import {AppBackground,GlassCard,ScreenHeader,SectionTitle,useResponsivePage} from '@/components/UI';
 import {useSession} from '@/lib/session';
-import {APP_ASSETS,APP_CONFIG} from '@/config/app';
+import {APP_CONFIG} from '@/config/app';
 import {typography,useTheme} from '@/lib/theme';
 
 export default function More(){
@@ -25,7 +26,7 @@ export default function More(){
     <GlassCard style={{padding:6}}><Item icon="phone-portrait-outline" title={copy.deviceRequestsTitle} sub={copy.deviceRequestsSubtitle} onPress={()=>router.push('/device-requests')}/></GlassCard>
 
     <TouchableOpacity onPress={async()=>{await signOut();router.replace('/(auth)/login')}} style={[s.logout,{backgroundColor:colors.dangerSoft,borderColor:colors.border}]}><Ionicons name="log-out-outline" size={20} color={colors.danger}/><Text style={[s.logoutText,typography.medium,{color:colors.danger}]}>{copy.signOut}</Text></TouchableOpacity>
-    <View style={s.brand}><SmartImage kind="logo" source={resolved==='dark'?APP_ASSETS.tekbooksLogoDark:APP_ASSETS.tekbooksLogo} width={APP_CONFIG.assets.productLogo.workspaceWidth} height={APP_CONFIG.assets.productLogo.workspaceHeight}/><Text style={[s.brandText,typography.regular,{color:colors.textSoft}]}>v{APP_CONFIG.version} • {APP_CONFIG.tagline}</Text></View>
+    <View style={s.brand}><Logo/><Text style={[s.brandText,typography.regular,{color:colors.textSoft}]}>v{APP_CONFIG.version} • {APP_CONFIG.tagline}</Text></View>
   </ScrollView></AppBackground>;
 }
 function Item({icon,title,sub,onPress,divider=false}:{icon:any;title:string;sub:string;onPress:()=>void;divider?:boolean}){const{colors}=useTheme();return <TouchableOpacity onPress={onPress} style={[s.item,divider?{borderBottomWidth:StyleSheet.hairlineWidth,borderBottomColor:colors.border}:undefined]}><View style={[s.icon,{backgroundColor:colors.accentSoft}]}><Ionicons name={icon} size={20} color={colors.primary}/></View><View style={{flex:1,minWidth:0}}><Text style={[s.itemTitle,typography.medium,{color:colors.text}]}>{title}</Text><Text style={[s.meta,typography.regular,{color:colors.textMuted}]}>{sub}</Text></View><Ionicons name="chevron-forward" size={18} color={colors.textSoft}/></TouchableOpacity>}

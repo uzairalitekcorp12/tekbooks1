@@ -3,13 +3,16 @@ import { z } from 'zod';
 import { requireAuth } from '../middleware/auth.js';
 import {
   normalizeOwnedAssetUrl,
+  readStoredFile,
   refreshedOwnedStorageUrl,
   sameStoredFile
 } from '../services/storage.js';
 import { removeOwnedStoredFileIfUnreferenced } from '../services/storage-records.js';
+import { imageDimensionError, imageDimensions, type BrandImageKind } from '../utils/image-rules.js';
 
 const r = Router();
 const imageTypes = ['image/jpeg', 'image/png', 'image/webp'] as const;
+const logoTypes = ['image/jpeg', 'image/png'] as const;
 
 r.use(requireAuth);
 
@@ -31,6 +34,13 @@ function profileResponse(user: any) {
     business: { ...business, logoUrl: responseAssetUrl(business.logoUrl, user._id) },
     deviceLabel: user.deviceLabel
   };
+}
+
+async function brandImageError(value: string, kind: BrandImageKind) {
+  const file = await readStoredFile(value);
+  if (!file) return 'The uploaded image could not be read. Choose it again.';
+  const dimensions = imageDimensions(file.buffer);
+  return dimensions ? imageDimensionError(kind, dimensions.width, dimensions.height) : 'The uploaded image dimensions could not be read. Choose a valid PNG, JPEG or WebP image.';
 }
 
 r.get('/', (req, res) => res.json(profileResponse(req.user)));
@@ -63,13 +73,25 @@ r.put('/', async (req, res) => {
     const requested = p.data.profilePictureUrl;
     if (!requested) nextProfile = '';
     else if (requested === previousProfile && /^https:\/\//i.test(requested) && !refreshedOwnedStorageUrl(requested, req.user._id)) nextProfile = previousProfile;
-    else nextProfile = await normalizeOwnedAssetUrl(requested, req.user._id, imageTypes);
+    else {
+      nextProfile = await normalizeOwnedAssetUrl(requested, req.user._id, imageTypes);
+      if (!sameStoredFile(previousProfile, nextProfile)) {
+        const error = await brandImageError(nextProfile, 'profile');
+        if (error) return res.status(422).json({ code: 'INVALID_PROFILE_IMAGE', message: error });
+      }
+    }
   }
   if (p.data.business?.logoUrl !== undefined) {
     const requested = p.data.business.logoUrl;
     if (!requested) nextLogo = '';
     else if (requested === previousLogo && /^https:\/\//i.test(requested) && !refreshedOwnedStorageUrl(requested, req.user._id)) nextLogo = previousLogo;
-    else nextLogo = await normalizeOwnedAssetUrl(requested, req.user._id, imageTypes);
+    else {
+      nextLogo = await normalizeOwnedAssetUrl(requested, req.user._id, logoTypes);
+      if (!sameStoredFile(previousLogo, nextLogo)) {
+        const error = await brandImageError(nextLogo, 'logo');
+        if (error) return res.status(422).json({ code: 'INVALID_COMPANY_LOGO', message: error });
+      }
+    }
   }
 
   if (p.data.name !== undefined) req.user.name = p.data.name;

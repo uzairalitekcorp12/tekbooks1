@@ -126,18 +126,20 @@ export async function checkApiReadiness(){
 }
 function localUploadPath(url:string){try{const parsed=new URL(url);return parsed.pathname.startsWith('/uploads/')?parsed.pathname:''}catch{return url.startsWith('/uploads/')?url:''}}
 export function absoluteAssetUrl(url?:string){if(!url)return '';const local=localUploadPath(url);if(local)return `${API_ORIGIN}${local}`;if(/^https?:\/\//i.test(url))return url;return `${API_ORIGIN}${url.startsWith('/')?'':'/'}${url}`}
-type UploadAssetInput={uri:string;name?:string;mimeType?:string;size?:number|null;file?:Blob|null};
+type UploadAssetInput={uri:string;name?:string;mimeType?:string;file?:Blob|null;allowedMimeTypes?:readonly string[]};
 type UploadFileBody=Blob|ExpoFile;
-function uploadMimeType(asset:UploadAssetInput,file:{type?:string|null;name?:string}){
-  const declared=String(asset.mimeType||file.type||'').toLowerCase();
-  if(declared==='image/jpg')return'image/jpeg';
-  if(['image/jpeg','image/png','image/webp','application/pdf'].includes(declared))return declared;
-  const name=String(asset.name||file.name||'').toLowerCase();
-  if(name.endsWith('.jpg')||name.endsWith('.jpeg'))return'image/jpeg';
-  if(name.endsWith('.png'))return'image/png';
-  if(name.endsWith('.webp'))return'image/webp';
-  if(name.endsWith('.pdf'))return'application/pdf';
-  return'application/octet-stream';
+function detectedUploadMime(bytes:Uint8Array){
+  if(bytes.length>=8&&[137,80,78,71,13,10,26,10].every((value,index)=>bytes[index]===value))return'image/png';
+  if(bytes.length>=3&&bytes[0]===255&&bytes[1]===216&&bytes[2]===255)return'image/jpeg';
+  if(bytes.length>=12&&String.fromCharCode(...bytes.slice(0,4))==='RIFF'&&String.fromCharCode(...bytes.slice(8,12))==='WEBP')return'image/webp';
+  if(bytes.length>=5&&String.fromCharCode(...bytes).includes('%PDF-'))return'application/pdf';
+  return'';
+}
+function uploadName(name:string,mimeType:string){
+  const extension:Record<string,string>={'image/jpeg':'.jpg','image/png':'.png','image/webp':'.webp','application/pdf':'.pdf'};
+  const suffix=extension[mimeType];
+  if(!suffix)return name;
+  return `${name.replace(/\.(jpe?g|png|webp|pdf)$/i,'')}${suffix}`;
 }
 async function uploadBody(asset:UploadAssetInput):Promise<UploadFileBody>{
   if(asset.file&&Number.isFinite(asset.file.size))return asset.file;
@@ -154,15 +156,20 @@ export async function uploadAsset(asset:UploadAssetInput){
   try{
   // The presign/upload endpoints already validate runtime and storage readiness.
   // Avoid a separate database ping and storage round trip before every upload.
-  const file=await uploadBody(asset);const mimeType=uploadMimeType(asset,file);const fileName='name'in file&&typeof file.name==='string'?file.name:'';const name=asset.name||fileName||'attachment';
-  const size=Number(asset.size||file.size||0);
+  const file=await uploadBody(asset);
+  if(file.size>APP_CONFIG.assets.upload.maxSizeMb*1024*1024)throw new TekBooksApiError(`Choose a file up to ${APP_CONFIG.assets.upload.maxSizeMb} MB.`);
+  const uploadBytes=file instanceof ExpoFile?await file.bytes():new Uint8Array(await file.arrayBuffer());const mimeType=detectedUploadMime(uploadBytes.subarray(0,1024));const fileName='name'in file&&typeof file.name==='string'?file.name:'';const name=uploadName(asset.name||fileName||'attachment',mimeType);
+  const size=uploadBytes.byteLength;
   if(!Number.isSafeInteger(size)||size<1)throw new TekBooksApiError('The selected file has no readable size. Choose it again.');
+  if(!APP_CONFIG.assets.upload.acceptedImages.some(type=>type===mimeType)&&mimeType!=='application/pdf')throw new TekBooksApiError('Choose a valid JPG, PNG, WebP or PDF file.');
+  if(asset.allowedMimeTypes&&!asset.allowedMimeTypes.includes(mimeType))throw new TekBooksApiError('Company logos must be PNG or JPEG. Transparent PNGs are supported.');
+  if(size>APP_CONFIG.assets.upload.maxSizeMb*1024*1024)throw new TekBooksApiError(`Choose a file up to ${APP_CONFIG.assets.upload.maxSizeMb} MB.`);
   const presigned=await api('/uploads/presign',{method:'POST',body:JSON.stringify({name,mimeType,size}),activityLabel:false});
   activity.update(`Uploading ${name}…`);
   if(presigned?.direct){
     const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),UPLOAD_TIMEOUT_MS);
     try{
-      const uploaded=await expoFetch(presigned.uploadUrl,{method:'PUT',headers:presigned.headers||{'Content-Type':mimeType},body:file,signal:controller.signal});
+      const uploaded=await expoFetch(presigned.uploadUrl,{method:'PUT',headers:presigned.headers||{'Content-Type':mimeType},body:uploadBytes,signal:controller.signal});
       if(!uploaded.ok){
         const details=await uploaded.text().catch(()=>'');const storageCode=details.match(/<Code>([^<]+)<\/Code>/)?.[1];
         throw new TekBooksApiError(`Storage upload failed (${uploaded.status}${storageCode?`, ${storageCode}`:''}). Try again.`,{status:uploaded.status});

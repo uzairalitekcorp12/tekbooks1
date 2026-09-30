@@ -31,7 +31,7 @@ module.exports = ({ config }) => {
 
   return {
     ...config,
-    version: '1.0.11',
+    version: '1.0.13',
     plugins,
     extra: {
       ...(config.extra || {}),

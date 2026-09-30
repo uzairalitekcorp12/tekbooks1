@@ -1,5 +1,5 @@
 /**
- * TekBooks application configuration — v1.0.11.
+ * TekBooks application configuration — v1.0.13.
  *
  * This is the primary mobile source of truth for product identity, customer-facing
  * copy, theme colors, defaults, navigation labels, image presentation and lists.
@@ -10,9 +10,12 @@
  * - A signed-in company's actual name/logo/TRN/contact details are stored in MongoDB
  *   and edited from Profile & company identity. Runtime company data always wins.
  */
+// Keep this in sync with the backend MAX_UPLOAD_MB setting.
+const MAX_UPLOAD_MB = 10;
+
 export const APP_CONFIG = {
   name: 'TekBooks',
-  version: '1.0.11',
+  version: '1.0.0',
   shortMark: 'TB',
   tagline: 'Clarity for every business decision',
   poweredBy: 'Powered by TekBooks',
@@ -21,13 +24,13 @@ export const APP_CONFIG = {
 
   /** Product-owned image files. Replace the files at these paths to rebrand the build. */
   assetFiles: {
-    tekbooksLogo: '../assets/brand/tekbooks-logo.png',
+    tekbooksLogo: '../assets/brand/logo-big.png',
     // Desired replacement path. Runtime safely uses the existing logo until
     // this approved artwork is supplied and the matching require below changes.
     logoBig: '../assets/brand/logo-big.png',
-    appIcon: '../assets/icon.png',
-    adaptiveIcon: '../assets/adaptive-icon.png',
-    splash: '../assets/splash.png',
+    appIcon: '../assets/tekbooks-launcher.png',
+    adaptiveIcon: '../assets/tekbooks-adaptive-foreground.png',
+    splash: '../assets/brand/logo-big.png',
     notificationIcon: '../assets/notification-icon.png',
   },
 
@@ -106,8 +109,10 @@ export const APP_CONFIG = {
     upload: {
       acceptedImages: ['image/jpeg','image/png','image/webp'],
       preferredLogoTypes: ['image/png','image/jpeg','image/jpg'],
-      logoHint: 'PNG or JPEG • landscape, square and transparent logos are supported',
-      profileHint: 'JPG, PNG or WebP • square photos look best',
+      maxSizeMb: MAX_UPLOAD_MB,
+      logoHint: `PNG (transparent or solid) or JPEG • square 600×600–1000×1000 px or 1024×1024 px; landscape 600–2048 px wide × 300–1000 px high (max 4:1) • up to ${MAX_UPLOAD_MB} MB`,
+      profileHint: `JPG, PNG or WebP • square 600×600–1000×1000 px or 1024×1024 px • up to ${MAX_UPLOAD_MB} MB`,
+      documentHint: `JPG, PNG, WebP or PDF • up to ${MAX_UPLOAD_MB} MB per file • 1024×1024 px images are accepted`,
     },
   },
 
@@ -124,9 +129,9 @@ export const APP_CONFIG = {
     loginBody: 'Income, expenses, invoices, VAT, documents and receivables—organized in one private workspace.',
     loginPowered: 'Secure book keeping, powered by TekBooks',
     loginSignInTitle: 'Welcome back',
-    loginSignInSubtitle: 'Sign in to continue to your private business workspace.',
-    loginEmailLabel: 'Username', loginPasswordLabel: 'Password', loginButton: 'Continue securely', loginForgot: 'Forgot password?',
-    loginCreatePrompt: 'New business workspace?', loginCreateAction: 'Create account', loginSecurity: 'Private business access • Protected device sign-in',
+    loginSignInSubtitle: 'Sign in to manage your books, invoices and reports.',
+    loginEmailLabel: 'Email or username', loginPasswordLabel: 'Password', loginButton: 'Sign in', loginForgot: 'Forgot password?',
+    loginCreatePrompt: 'New to TekBooks?', loginCreateAction: 'Create account', loginSecurity: 'Private business access • Protected device sign-in',
     dashboardTitle: 'Business overview', dashboardPosition: 'Available business position',
     transactionsTitle: 'Money in & out', transactionsSubtitle: 'A clean, searchable record of every business movement',
     invoicesTitle: 'Invoices & receivables', invoicesSubtitle: 'Create polished invoices, collect payments and see exactly what remains due',
@@ -156,14 +161,15 @@ export const APP_CONFIG = {
 
 /** Local product artwork. Replace the PNG file to update the in-app TekBooks logo. */
 export const APP_ASSETS = {
-  tekbooksLogo: require('../assets/brand/tekbooks-logo.png'),
-  tekbooksLogoDark: require('../assets/brand/tekbooks-logo-dark.png'),
+  tekbooksLogo: require('../assets/brand/logo-big.png'),
+  tekbooksLogoDark: require('../assets/brand/logo-big.png'),
   // These aliases prevent Metro from failing before logo-big.png is delivered.
   // When adding one final logo, point both aliases at logo-big.png so the same
   // brand is used in light and dark mode.
   logoBig: require('../assets/brand/logo-big.png'),
   logoBigDark: require('../assets/brand/logo-big.png'),
-  appIcon: require('../assets/icon.png'),
+  appIcon: require('../assets/tekbooks-launcher.png'),
+  adaptiveIcon: require('../assets/tekbooks-adaptive-foreground.png'),
 };
 
 export const PAYMENT_METHODS = ['Cash', 'Bank Transfer', 'Card', 'Cheque', 'Online Payment', 'Other'] as const;

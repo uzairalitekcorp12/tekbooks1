@@ -1,47 +1,42 @@
 import {useState} from 'react';
-import {Alert,ScrollView,StyleSheet,Text,View} from 'react-native';
+import {Alert,StyleSheet} from 'react-native';
+import {FormScrollView} from '@/components/FormScrollView';
 import {router} from 'expo-router';
-import {AuthBackButton} from '@/components/Auth';
+import {AuthBackButton,AuthBrandHeader,AuthFormHeading} from '@/components/Auth';
 import {AppBackground,Button,Field,GlassCard,useResponsivePage} from '@/components/UI';
-import {Logo} from '@/components/Logo';
 import {api} from '@/lib/api';
-import {typography,useTheme} from '@/lib/theme';
 
 export default function Forgot(){
   const[email,setEmail]=useState('');
   const[loading,setLoading]=useState(false);
-  const{colors}=useTheme();
   const page=useResponsivePage(false);
 
   async function go(){
     if(loading)return;
+    if(!email.trim())return Alert.alert('Enter your email or username','We need your account details to send a reset code.');
     setLoading(true);
     try{
-      await api('/auth/forgot-password',{method:'POST',body:JSON.stringify({email})});
-      router.push({pathname:'/(auth)/reset',params:{email}});
+      await api('/auth/forgot-password',{method:'POST',body:JSON.stringify({email:email.trim()})});
+      router.push({pathname:'/(auth)/reset',params:{email:email.trim()}});
     }catch(e:any){
       Alert.alert('Error',e.message);
     }finally{setLoading(false)}
   }
 
   return <AppBackground>
-    <ScrollView contentContainerStyle={[s.wrap,page]} keyboardShouldPersistTaps="handled">
+    <FormScrollView contentContainerStyle={[s.wrap,page]} keyboardShouldPersistTaps="handled">
       <AuthBackButton label="Back to sign in"/>
-      <View style={s.logo}><Logo/></View>
-      <Text style={[s.h1,typography.medium,{color:colors.text}]}>Reset password</Text>
-      <Text style={[s.p,typography.regular,{color:colors.textMuted}]}>We’ll send a one-time reset code to your registered email.</Text>
+      <AuthBrandHeader/>
       <GlassCard style={s.card}>
-        <Field label="Username" value={email} onChangeText={setEmail} autoCapitalize="none" autoCorrect={false} placeholder="admin@tekbooks"/>
+        <AuthFormHeading title="Reset your password" subtitle="We'll send a reset code to the email on your account."/>
+        <Field label="Email or username" value={email} onChangeText={setEmail} autoCapitalize="none" autoCorrect={false} placeholder="Email or username"/>
         <Button title="Send reset code" onPress={go} loading={loading} loadingTitle="Sending reset code…"/>
       </GlassCard>
-    </ScrollView>
+    </FormScrollView>
   </AppBackground>;
 }
 
 const s=StyleSheet.create({
-  wrap:{padding:24,paddingBottom:40},
-  logo:{marginTop:24},
-  h1:{fontSize:32,marginTop:34},
-  p:{marginTop:10,lineHeight:21},
-  card:{gap:14,marginTop:24},
+  wrap:{padding:22,paddingTop:22,paddingBottom:40},
+  card:{gap:14,padding:18},
 });

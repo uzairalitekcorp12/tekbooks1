@@ -2,28 +2,29 @@
   "expo": {
     "name": "TekBooks",
     "slug": "tekbooks",
-    "version": "1.0.11",
+    "version": "1.0.13",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/tekbooks-launcher.png",
     "scheme": "tekbooks",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/splash.png",
+      "image": "./assets/brand/logo-big.png",
       "resizeMode": "contain",
       "backgroundColor": "#F9FFFE"
     },
     "android": {
       "package": "com.tekcorp.tekbooks",
+      "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#F9FFFE"
+        "foregroundImage": "./assets/tekbooks-adaptive-foreground.png",
+        "backgroundColor": "#001C20"
       },
       "permissions": [
         "READ_MEDIA_IMAGES",
         "POST_NOTIFICATIONS"
       ],
-      "versionCode": 11
+      "versionCode": 13
     },
     "plugins": [
       "expo-router",

@@ -1,8 +1,9 @@
 import {useEffect,useState} from 'react';
-import {Alert,KeyboardAvoidingView,Platform,ScrollView,StyleSheet,Text,TouchableOpacity,View} from 'react-native';
+import {Alert,StyleSheet,Text,TouchableOpacity,View} from 'react-native';
 import {router} from 'expo-router';
 import {Ionicons} from '@expo/vector-icons';
 import {AuthBrand} from '@/components/Auth';
+import {FormScrollView} from '@/components/FormScrollView';
 import {SmartImage} from '@/components/Media';
 import {AppBackground,Button,Field,GlassCard,PasswordField,useResponsivePage} from '@/components/UI';
 import {api} from '@/lib/api';
@@ -48,25 +49,24 @@ export default function Login(){
   }
 
   return <AppBackground>
-    <KeyboardAvoidingView style={{flex:1}} behavior={Platform.OS==='ios'?'padding':undefined}>
-      <ScrollView contentContainerStyle={[s.wrap,page]} keyboardShouldPersistTaps="handled">
+      <FormScrollView contentContainerStyle={[s.wrap,page]}>
         <View style={s.brandArea}>
           <AuthBrand/>
         </View>
 
         <GlassCard style={s.formCard}>
-          {rememberedWorkspace?<View style={[s.workspace,{backgroundColor:colors.accentSoft}]}>
-            <SmartImage kind="logo" uri={rememberedWorkspace.logoUrl} size={42} fallbackText={rememberedWorkspace.companyName}/>
-            <View style={{flex:1,minWidth:0}}>
-              <Text style={[s.workspaceLabel,typography.medium,{color:colors.primary}]}>RETURNING TO</Text>
-              <Text numberOfLines={1} style={[s.workspaceName,typography.medium,{color:colors.text}]}>{rememberedWorkspace.companyName}</Text>
-            </View>
-          </View>:null}
           <View style={s.heading}>
             <Text style={[s.signTitle,typography.medium,{color:colors.text}]}>{APP_CONFIG.copy.loginSignInTitle}</Text>
             <Text style={[s.signSub,typography.regular,{color:colors.textMuted}]}>{APP_CONFIG.copy.loginSignInSubtitle}</Text>
           </View>
-          <Field label={APP_CONFIG.copy.loginEmailLabel} value={email} onChangeText={setEmail} autoCapitalize="none" autoCorrect={false} placeholder="admin@tekbooks"/>
+          {rememberedWorkspace?<View style={[s.workspace,{backgroundColor:colors.accentSoft}]}>
+            <SmartImage kind="logo" uri={rememberedWorkspace.logoUrl} size={42} fallbackText={rememberedWorkspace.companyName}/>
+            <View style={{flex:1,minWidth:0}}>
+              <Text style={[s.workspaceLabel,typography.medium,{color:colors.primary}]}>RECENT WORKSPACE</Text>
+              <Text numberOfLines={1} style={[s.workspaceName,typography.medium,{color:colors.text}]}>{rememberedWorkspace.companyName}</Text>
+            </View>
+          </View>:null}
+          <Field label={APP_CONFIG.copy.loginEmailLabel} value={email} onChangeText={setEmail} autoCapitalize="none" autoCorrect={false} placeholder="Email or username"/>
           <PasswordField label={APP_CONFIG.copy.loginPasswordLabel} value={password} onChangeText={setPassword} placeholder="Enter your password" autoCapitalize="none"/>
           <Button title={APP_CONFIG.copy.loginButton} onPress={submit} loading={loading} loadingTitle="Signing in…"/>
           <TouchableOpacity accessibilityRole="button" onPress={()=>router.push('/(auth)/forgot')} style={s.forgot}>
@@ -84,8 +84,7 @@ export default function Login(){
           <Ionicons name="shield-checkmark-outline" size={15} color={colors.textSoft}/>
           <Text style={[typography.regular,{fontSize:10,color:colors.textSoft}]}>{APP_CONFIG.copy.loginSecurity}</Text>
         </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+      </FormScrollView>
   </AppBackground>;
 }
 
@@ -94,8 +93,8 @@ const s=StyleSheet.create({
   brandArea:{width:'100%',alignItems:'center',justifyContent:'center',paddingHorizontal:4,marginBottom:24},
   formCard:{gap:14,padding:18},
   workspace:{flexDirection:'row',alignItems:'center',gap:11,borderRadius:17,padding:11,marginBottom:2},
-  workspaceLabel:{fontSize:8,letterSpacing:1.45,marginBottom:3},
-  workspaceName:{fontSize:14.5},
+  workspaceLabel:{fontSize:9,letterSpacing:1.1,marginBottom:3},
+  workspaceName:{fontSize:16},
   heading:{gap:5,marginBottom:4},
   signTitle:{fontSize:20},
   signSub:{fontSize:11.5,lineHeight:17},

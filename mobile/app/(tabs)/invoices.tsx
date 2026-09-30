@@ -1,5 +1,6 @@
 import {useCallback,useMemo,useState} from 'react';
-import {Alert,ScrollView,StyleSheet,Text,TouchableOpacity,View} from 'react-native';
+import {Alert,StyleSheet,Text,TouchableOpacity,View} from 'react-native';
+import {FormScrollView} from '@/components/FormScrollView';
 import {useFocusEffect} from 'expo-router';
 import {Ionicons} from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
@@ -91,7 +92,7 @@ export default function Invoices(){
   const draft=useMemo(()=>{const mapped=lines.map(l=>({amount:Math.max(0,Number(l.qty)||0)*Math.max(0,Number(l.unitPrice)||0),vatPercent:Math.max(0,Number(l.vatPercent)||0)}));const subtotal=mapped.reduce((sum,l)=>sum+l.amount,0),pct=Math.min(100,Math.max(0,Number(discountPercent)||0)),discountAmount=subtotal*(pct/100),taxable=Math.max(0,subtotal-discountAmount),weightedVat=mapped.reduce((sum,l)=>sum+l.amount*(l.vatPercent/100),0),vat=subtotal?weightedVat*(taxable/subtotal):0;return{subtotal,discountAmount,vat,total:taxable+vat}},[lines,discountPercent]);
   const draftTotal=draft.total;const customerOptions=customers.map(c=>({key:c._id,label:c.name,meta:[c.email,c.phone,c.trn?`TRN ${c.trn}`:''].filter(Boolean).join(' • ')}));
 
-  return <AppBackground><ScrollView style={{flex:1}} contentContainerStyle={[s.content,page]} keyboardShouldPersistTaps="handled">
+  return <AppBackground><FormScrollView style={{flex:1}} contentContainerStyle={[s.content,page]} keyboardShouldPersistTaps="handled">
     <ScreenHeader title={APP_CONFIG.copy.invoicesTitle} subtitle={APP_CONFIG.copy.invoicesSubtitle} right={<TouchableOpacity style={[s.add,{backgroundColor:colors.primary,borderColor:colors.borderStrong}]} onPress={()=>setShow(!show)}><Ionicons name={show?'close':'add'} size={24} color={colors.onPrimary}/></TouchableOpacity>}/>
 
     <View style={s.summaryGrid}><SummaryMetric label="Billed" value={totals.billed} currency={currency}/><SummaryMetric label="Collected" value={totals.paid} currency={currency} tone="income"/><SummaryMetric label="Outstanding" value={totals.outstanding} currency={currency} tone={totals.outstanding>0?'expense':'default'}/></View>
@@ -123,13 +124,14 @@ export default function Invoices(){
       <SectionTitle title="Notes & attachment" subtitle="Both are optional"/>
       <Field label="Notes / payment terms (optional)" value={notes} onChangeText={setNotes} multiline placeholder="Optional payment terms or message"/>
       <View style={{marginTop:10}}><Button secondary icon="attach" title={attachment?`Replace: ${attachment.name}`:'Add supporting document (optional)'} onPress={pick} loading={uploading} loadingTitle="Uploading attachment…" disabled={saving}/></View>
+      <Text style={[typography.regular,{fontSize:10,lineHeight:15,color:colors.textMuted}]}>{APP_CONFIG.assets.upload.documentHint}</Text>
       {attachment?<View style={[s.attachmentRow,{borderColor:colors.border,backgroundColor:colors.surfaceMuted}]}><Ionicons name="document-attach-outline" size={18} color={colors.primary}/><Text numberOfLines={1} style={[typography.medium,{fontSize:11.5,color:colors.text,flex:1}]}>{attachment.name||'Supporting document'}</Text><TouchableOpacity disabled={uploading||saving} onPress={async()=>{await deleteUploadedAsset(attachment);setAttachment(null)}}><Ionicons name="close-circle" size={21} color={colors.textMuted}/></TouchableOpacity></View>:null}
       <View style={{marginTop:10}}><Button title="Create invoice" onPress={create} loading={saving} loadingTitle="Creating invoice…" disabled={uploading}/></View>
     </GlassCard>:null}
 
     <View style={s.filters}>{['ALL','UNPAID','PARTIAL','PAID'].map(x=><Filter key={x} text={x==='ALL'?'All':x[0]+x.slice(1).toLowerCase()} active={filter===x} onPress={()=>setFilter(x)}/>)}</View>
     {shown.length?<View style={{gap:10}}>{shown.map(x=><InvoiceCard key={x._id} invoice={x} currency={currency} onPress={()=>{setSelected(x);setPaymentAmount(String(Number(x.balance||0).toFixed(2)))}}/>)}</View>:<GlassCard><EmptyState icon="document-text-outline" title="No invoices in this view" body={filter==='ALL'?'Create your first customer invoice when you are ready to bill.':`No ${filter.toLowerCase()} invoices right now.`}/></GlassCard>}
-  </ScrollView>
+  </FormScrollView>
 
   <DetailModal visible={!!selected} onClose={()=>setSelected(null)} title={selected?.invoiceNumber||'Invoice'} subtitle={selected?.customerSnapshot?.name} footer={selected?<View style={{gap:8}}>{selected.balance>0?<Button icon="card-outline" title="Record payment" onPress={recordPayment} loading={paying} loadingTitle="Recording payment…" compact/>:null}<Button secondary icon="share-social-outline" title="Share PDF" onPress={()=>sharePdf(selected)} compact/><Button secondary icon="print-outline" title="Print invoice" onPress={()=>printPdf(selected)} compact/><Button danger icon="trash-outline" title="Delete invoice" onPress={deleteInvoice} compact/></View>:undefined}>
     {selected?<>

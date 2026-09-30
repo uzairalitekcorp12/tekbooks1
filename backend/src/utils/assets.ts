@@ -9,6 +9,30 @@ export function pdfImageType(buffer:Buffer):'png'|'jpeg'|null{
   return null;
 }
 
+export function pdfImageDimensions(buffer:Buffer):{width:number;height:number}|null{
+  if(pdfImageType(buffer)==='png'&&buffer.length>=24){
+    const width=buffer.readUInt32BE(16),height=buffer.readUInt32BE(20);
+    return width&&height?{width,height}:null;
+  }
+  if(pdfImageType(buffer)!=='jpeg')return null;
+  let offset=2;
+  while(offset+9<buffer.length){
+    if(buffer[offset]!==0xff){offset++;continue}
+    const marker=buffer[offset+1];offset+=2;
+    if(marker===0xd9||marker===0xda)break;
+    if(marker===0xff||marker===0x00||marker===0xd8)continue;
+    if(offset+2>buffer.length)break;
+    const length=buffer.readUInt16BE(offset);
+    if(length<2||offset+length>buffer.length)break;
+    if([0xc0,0xc1,0xc2,0xc3,0xc5,0xc6,0xc7,0xc9,0xca,0xcb,0xcd,0xce,0xcf].includes(marker)){
+      const height=buffer.readUInt16BE(offset+3),width=buffer.readUInt16BE(offset+5);
+      return width&&height?{width,height}:null;
+    }
+    offset+=length;
+  }
+  return null;
+}
+
 function usablePdfImage(buffer:Buffer){return buffer.length<=MAX_PDF_IMAGE_BYTES&&pdfImageType(buffer)!==null}
 
 export async function pdfImageBuffer(url?:string){

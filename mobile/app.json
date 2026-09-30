@@ -48,6 +48,13 @@
     "experiments": {
       "typedRoutes": true,
       "autolinkingModuleResolution": true
+    },
+    "extra": {
+      "hasEmbeddedLufga": true,
+      "router": {},
+      "eas": {
+        "projectId": "2b937fbe-7090-4fdb-85b6-45f51d251b10"
+      }
     }
   }
 }

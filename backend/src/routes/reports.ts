@@ -1,10 +1,10 @@
 import {Router} from 'express';
 import ExcelJS from 'exceljs';
-import PDFDocument from 'pdfkit';
 import {requireAuth} from '../middleware/auth.js';
 import {Transaction,Invoice,Party,mongoose} from '../models/index.js';
 import {REPORT_BRAND as B} from '../config/brand.js';
-import {pdfImageBuffer,pdfImageType} from '../utils/assets.js';
+import {pdfImageBuffer,pdfImageDimensions,pdfImageType} from '../utils/assets.js';
+import {renderReportPdf} from '../services/report-pdf.js';
 import {roundMoney} from '../utils/accounting.js';
 import {sendDownload} from '../utils/download.js';
 
@@ -41,7 +41,7 @@ async function data(uid:any,q:any){
   const supplierStatements=suppliers.map((p:any)=>{const ptx=tx.filter((x:any)=>String(x.partyId||'')===String(p._id));return{party:p,totalBusiness:sum(ptx),transactions:ptx.length}});
   return{tx,invoices,parties,incomeTx,expenseTx,receivables,customerStatements,supplierStatements,incomeCategories:grouped(incomeTx,'category'),expenseCategories:grouped(expenseTx,'category'),summary:{income,expenses,profit:income-expenses,receivables:sum(receivables,'balance'),inputVat,outputVat,vatPayable:outputVat-inputVat}}
 }
-function periodLabel(q:any){const from=q.from?new Date(String(q.from)).toLocaleDateString():'Beginning';const to=q.to?new Date(String(q.to)).toLocaleDateString():'Today';return `${from} to ${to}`}
+function periodLabel(q:any){if(!q.from&&!q.to)return'All recorded activity';const from=q.from?new Date(String(q.from)).toLocaleDateString('en-GB',{timeZone:'UTC'}):'Beginning';const to=q.to?new Date(String(q.to)).toLocaleDateString('en-GB',{timeZone:'UTC'}):'Today';return `${from} to ${to}`}
 function money(v:any,c='AED'){return `${c} ${Number(v||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}`}
 function safe(v:any){return String(v??'').trim()}
 
@@ -58,7 +58,7 @@ function styleTable(ws:any,row:number,cols:number){
   for(let c=1;c<=cols;c++){const cell=ws.getRow(row).getCell(c);cell.font={name:'Calibri',bold:true,size:10,color:{argb:'FFFFFFFF'}};cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF087E6D'}};cell.alignment={vertical:'middle',wrapText:true}}
   ws.getRow(row).height=28;if(!ws._reportTable)ws._reportTable={row,cols};ws.views=[{state:'frozen',ySplit:ws._reportTable.row,showGridLines:false}];
 }
-function addWorkbookLogo(wb:any,logo:Buffer|null){if(!logo)return;try{const extension=pdfImageType(logo);if(!extension)return;const id=wb.addImage({buffer:logo as any,extension:extension as any});wb.eachSheet((ws:any)=>{ws.getCell('G1').value='';ws.addImage(id,{tl:{col:6.15,row:.2},ext:{width:105,height:42}})})}catch{}}
+function addWorkbookLogo(wb:any,logo:Buffer|null){if(!logo)return;try{const extension=pdfImageType(logo),dimensions=pdfImageDimensions(logo);if(!extension||!dimensions)return;const id=wb.addImage({buffer:logo as any,extension:extension as any});const scale=Math.min(104/dimensions.width,67/dimensions.height);const width=Math.round(dimensions.width*scale),height=Math.round(dimensions.height*scale);wb.eachSheet((ws:any)=>{ws.getCell('G1').value='';ws.addImage(id,{tl:{col:6.15,row:.12},ext:{width,height}})})}catch{}}
 function workbookFinish(wb:any){wb.eachSheet((ws:any)=>{
   ws.eachRow((row:any,index:number)=>{
     if(index<=2)return;
@@ -76,34 +76,6 @@ function workbookFinish(wb:any){wb.eachSheet((ws:any)=>{
   ws.pageSetup={orientation:'landscape',fitToPage:true,fitToWidth:1,fitToHeight:0,printTitlesRow:`1:${table?.row||2}`,margins:{left:.3,right:.3,top:.5,bottom:.5,header:.2,footer:.2}};
   ws.headerFooter={oddFooter:`&L${B.poweredBy}&RPage &P of &N`};
 })}
-
-function pdfFooter(doc:any,b:any){const y=doc.page.height-55;doc.moveTo(36,y-8).lineTo(doc.page.width-36,y-8).strokeColor(B.line).stroke();doc.font('Helvetica').fontSize(6.5).fillColor(B.muted).text(`${B.poweredBy}  •  ${safe(b.name||b.legalName||'Business')}`,36,y,{width:doc.page.width-72,align:'center',lineBreak:false});doc.fontSize(6.2).text(B.builtBy,36,y+9,{width:doc.page.width-72,align:'center',lineBreak:false})}
-function pdfPageHeader(doc:any,b:any,logo:Buffer|null,title:string){
-  doc._reportContext={b,logo,title};doc.rect(0,0,doc.page.width,112).fill('#082C2B');doc.rect(0,112,doc.page.width,3).fill(B.accent);
-  if(logo){doc.roundedRect(36,23,94,39,6).fill('#FFFFFF');try{doc.image(logo,41,27,{fit:[84,31],align:'center',valign:'center'})}catch{}}
-  doc.font('Helvetica-Bold').fontSize(12).fillColor('#FFFFFF').text(safe(b.name||b.legalName||'Business'),logo?145:36,28,{width:logo?280:385,height:32,ellipsis:true});
-  doc.font('Helvetica').fontSize(7).fillColor('#9DBDB5').text('TEKBOOKS / REPORTS',425,29,{width:134,align:'right'});
-  doc.font('Helvetica-Bold').fontSize(18).fillColor('#FFFFFF').text(title,36,77,{width:523,height:25,ellipsis:true});doc.x=36;doc.y=134;
-}
-function addReportPage(doc:any,b:any,logo:Buffer|null,title:string){doc.addPage();pdfPageHeader(doc,b,logo,title)}
-function ensure(doc:any,height:number,b:any,logo:Buffer|null,title:string){doc._reportContext={b,logo,title};if(doc.y+height>755)addReportPage(doc,b,logo,title)}
-function section(doc:any,title:string,subtitle?:string){doc.moveDown(.5);doc.font('Helvetica-Bold').fontSize(11.5).fillColor(B.primary2).text(title);if(subtitle)doc.font('Helvetica').fontSize(7.3).fillColor(B.muted).text(subtitle);doc.moveDown(.35)}
-function metricRows(doc:any,rows:{label:string;value:string;strong?:boolean}[]){rows.forEach(x=>{
-  const ctx=doc._reportContext;if(ctx)ensure(doc,34,ctx.b,ctx.logo,ctx.title);const y=doc.y;
-  if(x.strong)doc.roundedRect(36,y-4,523,30,5).fill(B.soft);
-  doc.font(x.strong?'Helvetica-Bold':'Helvetica').fontSize(x.strong?9.5:8.5).fillColor(x.strong?B.ink:B.muted).text(x.label,44,y+4,{width:295,height:16,ellipsis:true});
-  doc.fillColor(x.strong?B.primary2:B.ink).text(x.value,348,y+4,{align:'right',width:203,height:16,ellipsis:true});
-  if(!x.strong)doc.moveTo(44,y+25).lineTo(551,y+25).strokeColor(B.line).stroke();doc.x=36;doc.y=y+34;
-})}
-function summaryCards(doc:any,summary:any,currency:string){
-  const y=doc.y,items=[{label:'TOTAL INCOME',value:summary.income,fill:B.soft,color:B.success},{label:'TOTAL EXPENSES',value:summary.expenses,fill:'#FFF2F1',color:B.danger},{label:'NET PROFIT / (LOSS)',value:summary.profit,fill:'#082C2B',color:B.accent}];
-  items.forEach((item,i)=>{const x=36+i*178;doc.roundedRect(x,y,167,72,9).fill(item.fill);doc.font('Helvetica').fontSize(7).fillColor(i===2?'#B6D4CF':B.muted).text(item.label,x+12,y+16,{width:143});let fontSize=13;doc.font('Helvetica-Bold').fontSize(fontSize);const value=money(item.value,currency);while(doc.widthOfString(value)>143&&fontSize>8)doc.fontSize(--fontSize);doc.fillColor(item.color).text(value,x+12,y+36,{width:143,height:20,ellipsis:true})});doc.x=36;doc.y=y+88;
-}
-function ledgerRow(doc:any,x:any,currency:string,tone:string){
-  const y=doc.y;doc.font('Helvetica-Bold').fontSize(8.5).fillColor(B.ink).text(safe(x.category),44,y,{width:315,height:22,ellipsis:true});doc.fillColor(tone).text(money(x.amount,currency),366,y,{align:'right',width:185,height:20,ellipsis:true});
-  doc.font('Helvetica').fontSize(7).fillColor(B.muted).text([new Date(x.date).toLocaleDateString(),x.paymentMethod,x.vatAmount?`VAT ${money(x.vatAmount,currency)}`:''].filter(Boolean).join('  •  '),44,y+24,{width:507,height:12,ellipsis:true});
-  doc.fontSize(7).text([x.partyName,x.notes].filter(Boolean).join('  •  '),44,y+38,{width:507,height:16,ellipsis:true});doc.moveTo(44,y+57).lineTo(551,y+57).strokeColor(B.line).stroke();doc.x=36;doc.y=y+64;
-}
 
 r.get('/summary',async(req,res)=>res.json((await data(req.user._id,req.query)).summary));
 r.get('/customer/:id/statement',async(req,res)=>{if(!mongoose.isObjectIdOrHexString(req.params.id))return res.status(400).json({message:'Invalid customer identifier.'});const[party,invoices,tx]=await Promise.all([Party.findOne({_id:req.params.id,userId:req.user._id}),Invoice.find({userId:req.user._id,customerId:req.params.id}).sort({issueDate:-1}),Transaction.find({userId:req.user._id,partyId:req.params.id}).sort({date:-1})]);if(!party)return res.status(404).json({message:'Party not found'});res.json({party,invoices,transactions:tx})});
@@ -123,17 +95,11 @@ r.get('/export.xlsx',async(req,res)=>{
 });
 
 r.get('/export.pdf',async(req,res)=>{
-  const sections=selectedSections(req.query);if(!sections.size)return res.status(400).json({message:'Select at least one report section.'});
-  const d=await data(req.user._id,req.query),b=req.user.business||{},currency=b.currency||'AED',period=periodLabel(req.query),logo=await pdfImageBuffer(b.logoUrl);const chunks:Buffer[]=[];const doc=new PDFDocument({margin:36,size:'A4',bufferPages:true});const completed=new Promise<Buffer>((resolve,reject)=>{doc.on('data',(chunk:Buffer)=>chunks.push(chunk));doc.once('end',()=>resolve(Buffer.concat(chunks)));doc.once('error',reject)});
-  pdfPageHeader(doc,b,logo,'Business Management Report');doc.roundedRect(36,122,523,64,14).fill(B.soft);doc.font('Helvetica').fontSize(7).fillColor(B.muted).text('REPORTING PERIOD',54,139);doc.font('Helvetica-Bold').fontSize(13).fillColor(B.primary2).text(period,54,154,{width:330});doc.font('Helvetica').fontSize(7).fillColor(B.muted).text(`Currency: ${currency}${b.trn?` • TRN: ${b.trn}`:''}`,390,143,{width:150,align:'right'});doc.font('Helvetica').fontSize(6.8).fillColor(B.muted).text(`Generated ${new Date().toLocaleString()}`,390,158,{width:150,align:'right'});doc.y=205;
-  if(sections.has('summary')){section(doc,'Executive Summary','A concise view of the selected period');summaryCards(doc,d.summary,currency);metricRows(doc,[{label:'Outstanding receivables',value:money(d.summary.receivables,currency)},{label:'VAT payable / (recoverable)',value:money(d.summary.vatPayable,currency)}])}
-  if(sections.has('profit-loss')){ensure(doc,150,b,logo,'Profit & Loss');section(doc,'Profit & Loss','Income and expense categories');doc.font('Helvetica-Bold').fontSize(8).fillColor(B.success).text('Income');for(const x of d.incomeCategories){ensure(doc,18,b,logo,'Profit & Loss');doc.font('Helvetica').fontSize(7.5).fillColor(B.ink).text(x.name,46,doc.y,{continued:true,width:315}).text(money(x.total,currency),{align:'right',width:180});doc.moveDown(.2)}doc.moveDown(.35);doc.font('Helvetica-Bold').fontSize(8).fillColor(B.danger).text('Expenses');for(const x of d.expenseCategories){ensure(doc,18,b,logo,'Profit & Loss');doc.font('Helvetica').fontSize(7.5).fillColor(B.ink).text(x.name,46,doc.y,{continued:true,width:315}).text(money(x.total,currency),{align:'right',width:180});doc.moveDown(.2)}doc.moveDown(.4);metricRows(doc,[{label:'TOTAL INCOME',value:money(d.summary.income,currency),strong:true},{label:'TOTAL EXPENSES',value:money(d.summary.expenses,currency),strong:true},{label:'NET PROFIT / (LOSS)',value:money(d.summary.profit,currency),strong:true}])}
-  if(sections.has('income')){ensure(doc,95,b,logo,'Income Report');section(doc,'Income Report',`${d.incomeTx.length} recorded income transaction${d.incomeTx.length===1?'':'s'}`);if(d.incomeTx.length)for(const x of d.incomeTx){ensure(doc,64,b,logo,'Income Report');ledgerRow(doc,x,currency,B.success)}else doc.font('Helvetica').fontSize(8).fillColor(B.muted).text('No income transactions in this period.')}
-  if(sections.has('expenses')){ensure(doc,95,b,logo,'Expense Report');section(doc,'Expense Report',`${d.expenseTx.length} recorded expense transaction${d.expenseTx.length===1?'':'s'}`);if(d.expenseTx.length)for(const x of d.expenseTx){ensure(doc,64,b,logo,'Expense Report');ledgerRow(doc,x,currency,B.danger)}else doc.font('Helvetica').fontSize(8).fillColor(B.muted).text('No expense transactions in this period.')}
-  if(sections.has('receivables')){ensure(doc,95,b,logo,'Outstanding Receivables');section(doc,'Outstanding Receivables','Open and overdue customer balances');if(d.receivables.length)for(const x of d.receivables){ensure(doc,34,b,logo,'Outstanding Receivables');const overdue=new Date(x.dueDate)<new Date();doc.font('Helvetica-Bold').fontSize(7.8).fillColor(B.ink).text(`${x.invoiceNumber} • ${safe(x.customerSnapshot?.name||'Customer')}`,44,doc.y,{continued:true,width:320});doc.fillColor(overdue?B.danger:B.primary2).text(money(x.balance,currency),{align:'right',width:180});doc.font('Helvetica').fontSize(6.5).fillColor(B.muted).text(`Due ${new Date(x.dueDate).toLocaleDateString()} • ${overdue?'OVERDUE':x.status} • Total ${money(x.total,currency)} • Paid ${money(x.paidAmount,currency)}`,44,doc.y,{width:490});doc.moveDown(.45)}else doc.font('Helvetica').fontSize(8).fillColor(B.success).text('No outstanding receivables.')}
-  if(sections.has('customers')){ensure(doc,90,b,logo,'Customer Statement Summary');section(doc,'Customer Statement Summary','Billed, paid and outstanding balances by customer');if(d.customerStatements.length)for(const x of d.customerStatements){ensure(doc,32,b,logo,'Customer Statement Summary');doc.font('Helvetica-Bold').fontSize(7.8).fillColor(B.ink).text(x.party.name,44,doc.y,{continued:true,width:245});doc.fillColor(B.primary2).text(`Outstanding ${money(x.outstanding,currency)}`,{align:'right',width:250});doc.font('Helvetica').fontSize(6.5).fillColor(B.muted).text(`Billed ${money(x.totalBilled,currency)} • Paid ${money(x.paid,currency)} • ${x.transactions} linked transactions${x.party.trn?` • TRN ${x.party.trn}`:''}`,44,doc.y,{width:490});doc.moveDown(.45)}else doc.font('Helvetica').fontSize(8).fillColor(B.muted).text('No customers in this workspace.')}
-  if(sections.has('suppliers')){ensure(doc,90,b,logo,'Supplier Statement Summary');section(doc,'Supplier Statement Summary','Recorded business and transaction count by supplier');if(d.supplierStatements.length)for(const x of d.supplierStatements){ensure(doc,30,b,logo,'Supplier Statement Summary');doc.font('Helvetica-Bold').fontSize(7.8).fillColor(B.ink).text(x.party.name,44,doc.y,{continued:true,width:300});doc.fillColor(B.primary2).text(money(x.totalBusiness,currency),{align:'right',width:190});doc.font('Helvetica').fontSize(6.5).fillColor(B.muted).text(`${x.transactions} linked transactions${x.party.trn?` • TRN ${x.party.trn}`:''}`,44,doc.y,{width:490});doc.moveDown(.45)}else doc.font('Helvetica').fontSize(8).fillColor(B.muted).text('No suppliers in this workspace.')}
-  if(sections.has('vat')){ensure(doc,120,b,logo,'VAT Summary');section(doc,'VAT Summary','Basic input and output VAT position');metricRows(doc,[{label:'Output VAT on invoices',value:money(d.summary.outputVat,currency)},{label:'Input VAT on expenses',value:money(d.summary.inputVat,currency)},{label:'VAT payable / (recoverable)',value:money(d.summary.vatPayable,currency),strong:true}]);doc.moveDown(.3);doc.font('Helvetica').fontSize(6.8).fillColor(B.muted).text('VAT figures are book keeping summaries based on entries recorded in TekBooks. Confirm filing treatment with your tax adviser where required.',{lineGap:2})}
-  const pages=doc.bufferedPageRange();for(let i=0;i<pages.count;i++){doc.switchToPage(i);pdfFooter(doc,b);doc.font('Helvetica').fontSize(6.2).fillColor(B.muted).text(`Page ${i+1} of ${pages.count}`,500,doc.page.height-55,{width:60,align:'right',lineBreak:false})}doc.end();const pdf=await completed;return sendDownload(res,pdf,'application/pdf','TekBooks-Business-Report.pdf',req.user._id);
+  const sections=selectedSections(req.query);
+  if(!sections.size)return res.status(400).json({message:'Select at least one report section.'});
+  const d=await data(req.user._id,req.query),business=req.user.business||{};
+  const logo=await pdfImageBuffer(business.logoUrl);
+  const pdf=await renderReportPdf(d,business,business.currency||'AED',periodLabel(req.query),logo,sections);
+  return sendDownload(res,pdf,'application/pdf','TekBooks-Business-Report.pdf',req.user._id);
 });
 export default r;
